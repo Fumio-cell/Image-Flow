@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, openLemonSqueezyCheckout } from '../lib/commercial';
+import { supabase, openLemonSqueezyCheckout } from '../../utils/commercial';
 import { LogIn, LogOut, Zap, Activity } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -10,7 +10,7 @@ export const Header: React.FC = () => {
         const client = supabase;
         if (!client) return;
 
-        client.auth.getUser().then(({ data: { user: foundUser } }) => {
+        client.auth.getUser().then(({ data: { user: foundUser } }: any) => {
             setUser(foundUser);
             if (foundUser) {
                 client
@@ -18,7 +18,7 @@ export const Header: React.FC = () => {
                     .select('is_pro')
                     .eq('id', foundUser.id)
                     .single()
-                    .then(({ data }) => {
+                    .then(({ data }: any) => {
                         const pro = !!(data as any)?.is_pro;
                         setIsPro(pro);
                         window.dispatchEvent(new CustomEvent('auth:status', { detail: { user: foundUser, isPro: pro } }));
@@ -26,11 +26,11 @@ export const Header: React.FC = () => {
             }
         });
 
-        const { data: authListener } = client.auth.onAuthStateChange(async (_event, session) => {
+        const { data: authListener } = client.auth.onAuthStateChange(async (_event: any, session: any) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
             if (currentUser) {
-                const { data } = await client
+                const { data }: any = await client
                     .from('profiles')
                     .select('is_pro')
                     .eq('id', currentUser.id)
