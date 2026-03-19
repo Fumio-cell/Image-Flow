@@ -24,11 +24,11 @@ export const AudioTrack: React.FC = () => {
 
 
     return (
-        <div style={{ height: '60px', borderBottom: '1px solid var(--panel-border)', position: 'relative', overflow: 'hidden', backgroundColor: 'var(--track-bg)', width: `${width}px` }}>
+        <div style={{ height: '80px', borderBottom: '1px solid var(--panel-border)', position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.2)', width: `${width}px` }}>
             <svg
                 style={{ position: 'absolute', top: 0, left: 0, display: 'block' }}
                 width={width}
-                height={height}
+                height={80}
                 viewBox={`0 0 ${width} ${height}`}
                 preserveAspectRatio="none"
             >

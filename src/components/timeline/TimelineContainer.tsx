@@ -170,10 +170,38 @@ export const TimelineContainer: React.FC = () => {
             <div
                 ref={tracksRef}
                 className="timeline-tracks"
-                style={{ flex: 1, position: 'relative', overflowX: 'auto', overflowY: 'hidden' }}
+                style={{ flex: 1, position: 'relative', overflowX: 'auto', overflowY: 'auto', display: 'flex' }}
             >
+                {/* Track Labels - Sticky Column */}
+                <div style={{
+                    width: '60px',
+                    backgroundColor: 'var(--panel-bg)',
+                    borderRight: '1px solid var(--panel-border)',
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 20,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flexShrink: 0
+                }}>
+                    <div style={{ height: '28px', borderBottom: '1px solid var(--panel-bg)' }} /> {/* Header spacer */}
+                    <div style={{ height: '160px', opacity: 0.6, borderBottom: '2px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', color: 'var(--text-main)', letterSpacing: '2px', fontWeight: 'bold' }}>
+                        CLIPS
+                    </div>
+                    <div style={{ height: '80px', opacity: 0.6, borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', color: 'var(--text-main)', letterSpacing: '2px', fontWeight: 'bold' }}>
+                        AUDIO
+                    </div>
+                </div>
+
                 <div
-                    style={{ width: `${Math.max(100, timelineWidthPx)}px`, minHeight: '100%', position: 'relative' }}
+                    style={{ 
+                        flex: 1, 
+                        minWidth: `${Math.max(100, timelineWidthPx)}px`, 
+                        height: '100%', 
+                        position: 'relative',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}
                     onMouseDown={handleScrub}
                 >
                     <AudioPlayer />
@@ -190,11 +218,8 @@ export const TimelineContainer: React.FC = () => {
                         pointerEvents: 'none'
                     }} />
 
-                    <AudioTrack />
                     <ClipTrack />
-
-                    {/* Empty space filler */}
-                    <div style={{ position: 'absolute', top: '140px', bottom: 0, left: 0, right: 0, backgroundColor: 'var(--timeline-bg)', zIndex: -1 }} />
+                    <AudioTrack />
                 </div>
             </div>
         </div>

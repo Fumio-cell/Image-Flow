@@ -62,10 +62,12 @@ export const ClipTrack: React.FC = () => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             style={{
-                height: '80px',
-                borderBottom: '1px solid var(--panel-border)',
+                height: '160px',
+                borderBottom: '2px solid var(--panel-border)',
                 position: 'relative',
-                backgroundColor: 'var(--track-bg)'
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                outline: '1px dashed rgba(255,255,255,0.2)',
+                outlineOffset: '-4px'
             }}
         >
             {(() => {
@@ -175,7 +177,7 @@ export const ClipTrack: React.FC = () => {
                                 top: '4px',
                                 left: `${left}px`,
                                 width: `${Math.max(2, width)}px`,
-                                height: '72px',
+                                height: '152px',
                                 backgroundColor: 'var(--clip-bg)',
                                 border: isSelected ? '2px solid var(--clip-selected)' : '1px solid var(--clip-border)',
                                 borderRadius: 'var(--radius-sm)',
@@ -246,9 +248,28 @@ export const ClipTrack: React.FC = () => {
                 });
             })()}
 
-            {clips.length === 0 && (
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--text-inactive)', fontSize: '12px', pointerEvents: 'none' }}>
-                    Drag image assets here
+            {clips.length === 0 ? (
+                <div style={{ 
+                    position: 'absolute', 
+                    inset: '8px',
+                    border: '2px dashed rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    color: 'rgba(255,255,255,0.4)', 
+                    fontSize: '14px', 
+                    fontWeight: 'bold', 
+                    pointerEvents: 'none', 
+                    textAlign: 'center' 
+                }}>
+                    DRAG IMAGES HERE
+                    <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.7 }}>DROP FROM ASSETS PANE ON THE LEFT</div>
+                </div>
+            ) : (
+                <div style={{ position: 'absolute', top: '8px', left: '12px', color: 'rgba(255,255,255,0.05)', fontSize: '32px', fontWeight: 'bold', pointerEvents: 'none' }}>
+                    CLIPS
                 </div>
             )}
         </div>

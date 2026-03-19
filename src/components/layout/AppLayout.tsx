@@ -19,13 +19,10 @@ export const AppLayout: React.FC = () => {
 
                 {/* Center Area */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Top Center: Preview */}
-                    <div style={{ flex: 1, borderBottom: '1px solid var(--panel-border)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <main style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                         <PreviewContainer />
-                    </div>
-
-                    {/* Bottom Center: Timeline */}
-                    <div style={{ height: '350px', backgroundColor: 'var(--timeline-bg)', display: 'flex', flexDirection: 'column' }}>
+                    </main>
+                    <div style={{ height: '350px', borderTop: '4px solid var(--panel-border)', backgroundColor: 'var(--panel-bg)', overflow: 'hidden' }}>
                         <TimelineContainer />
                     </div>
                 </div>
