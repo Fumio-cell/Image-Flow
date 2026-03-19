@@ -1,6 +1,6 @@
 import React from 'react';
 import { TopBar } from './TopBar';
-import Header from './Header';
+import { Header } from './Header';
 import { AssetPane } from '../assets/AssetPane';
 import { SettingsPane } from '../settings/SettingsPane';
 import { PreviewContainer } from '../preview/PreviewContainer';
