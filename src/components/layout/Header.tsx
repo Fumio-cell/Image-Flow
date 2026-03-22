@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase, openLemonSqueezyCheckout } from '../../utils/commercial';
-import { LogIn, LogOut, Zap, Activity, Info, X } from 'lucide-react';
+import { LogIn, LogOut, Zap, Info, X } from 'lucide-react';
 
 export const Header: React.FC = () => {
     const [user, setUser] = useState<any>(null);
@@ -68,7 +68,7 @@ export const Header: React.FC = () => {
         <header className="toolkit-header">
             <div className="header-left">
                 <div className="toolkit-brand">
-                    <Activity className="brand-icon" />
+                    <svg className="brand-icon" viewBox="0 0 48 48" fill="none"><path d="M10 10 L38 10 Q36 18 38 24 Q40 30 38 38 L10 38 Q12 30 10 24 Q8 18 10 10Z" stroke="#7c5cfc" strokeWidth="1.2" fill="none" opacity="0.4"/><path d="M12 18 Q20 14 28 20 Q36 26 38 18" stroke="#7c5cfc" strokeWidth="1.5" fill="none" strokeLinecap="round"/><path d="M10 26 Q18 22 26 28 Q34 34 40 26" stroke="#5ce0fc" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
                     <span className="toolkit-name">Poetic Signal Toolkit</span>
                 </div>
                 <div className="app-separator">/</div>
@@ -126,7 +126,7 @@ export const Header: React.FC = () => {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    color: #38bdf8;
+                    color: #7c5cfc;
                 }
                 .brand-icon {
                     width: 1.25rem;
@@ -245,7 +245,7 @@ export const Header: React.FC = () => {
                     text-align: left;
                 }
                 .info-modal h2 { margin-top: 0; color: #f8fafc; font-size: 1.5rem; }
-                .info-modal h3 { color: #38bdf8; font-size: 0.85rem; margin-bottom: 24px; font-weight: 600; }
+                .info-modal h3 { color: #7c5cfc; font-size: 0.85rem; margin-bottom: 24px; font-weight: 600; }
                 .info-modal p { color: #cbd5e1; line-height: 1.6; font-size: 0.9rem; margin-bottom: 12px; }
                 .info-modal ul { color: #cbd5e1; font-size: 0.85rem; padding-left: 20px; list-style-type: none; margin:0; padding:0; }
                 .info-modal li { margin-bottom: 8px; font-weight: 500; color: #94a3b8; }
