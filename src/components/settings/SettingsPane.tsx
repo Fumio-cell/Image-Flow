@@ -37,6 +37,33 @@ const NumberField: React.FC<{
     );
 };
 
+const RangeField: React.FC<{
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    step?: number;
+    onChange: (v: number) => void;
+}> = ({ label, value, min, max, step = 0.01, onChange }) => {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
+                <span style={{ fontSize: '10px', color: 'var(--text-accent)' }}>{value.toFixed(2)}</span>
+            </div>
+            <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={value}
+                onChange={(e) => onChange(parseFloat(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer' }}
+            />
+        </div>
+    );
+};
+
 export const SettingsPane: React.FC = () => {
     const selectedClipId = useProjectStore((s) => s.ui.selectedClipId);
     const clips = useProjectStore((s) => s.data.clips);
@@ -146,6 +173,26 @@ export const SettingsPane: React.FC = () => {
                     <option value="pan-up">Pan Up</option>
                     <option value="pan-down">Pan Down</option>
                 </select>
+
+                <div style={{ padding: '0.5rem', marginTop: '0.25rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)', display: (clip.motionType && clip.motionType !== 'none') ? 'block' : 'none' }}>
+                    <RangeField
+                        label="Motion Intensity"
+                        value={clip.motionIntensity !== undefined ? clip.motionIntensity : 0.1}
+                        min={0.0}
+                        max={1.0}
+                        onChange={(v) => updateClip(clip.id, { motionIntensity: v })}
+                    />
+                    <RangeField
+                        label="Motion Speed"
+                        value={clip.motionSpeed !== undefined ? clip.motionSpeed : 0.5}
+                        min={0.0}
+                        max={1.0}
+                        onChange={(v) => updateClip(clip.id, { motionSpeed: v })}
+                    />
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '0.25rem 0 0 0' }}>
+                        Low Speed = Gentle Start | High Intensity = More Movement
+                    </p>
+                </div>
             </div>
 
             <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--panel-border)' }}>

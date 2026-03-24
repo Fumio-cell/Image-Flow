@@ -118,31 +118,41 @@ export const PreviewCanvas: React.FC = () => {
 
                 // Apply Ken Burns Effect (Motion)
                 if (clip.motionType && clip.motionType !== 'none') {
-                    const progress = (playheadMs - clip.startTimeMs) / clip.durationMs;
+                    const rawProgress = (playheadMs - clip.startTimeMs) / clip.durationMs;
+                    
+                    // Apply easing curve based on motionSpeed (Scale 0.1 to 1.0 -> Power 5.0 to 0.5)
+                    // Default 0.5 -> Power 1.0 (Linear)
+                    const speed = clip.motionSpeed ?? 0.5;
+                    const power = speed > 0 ? (0.5 / speed) : 1.0;
+                    const progress = Math.pow(Math.min(Math.max(rawProgress, 0), 1), power);
+                    
                     let motionScale = 1.0;
                     let motionOffsetX = 0;
                     let motionOffsetY = 0;
-                    const ZOOM_INTENSITY = 0.15;
-                    const PAN_INTENSITY = 0.10;
+                    
+                    // Adjust intensity scales
+                    const intensity = clip.motionIntensity ?? 0.1;
+                    const ZOOM_FACTOR = intensity * 1.5; // 0.1 -> 0.15 (prev default)
+                    const PAN_FACTOR = intensity * 1.0;  // 0.1 -> 0.1 (prev default)
 
                     if (clip.motionType === 'zoom-in') {
-                        motionScale = 1.0 + (progress * ZOOM_INTENSITY);
+                        motionScale = 1.0 + (progress * ZOOM_FACTOR);
                     } else if (clip.motionType === 'zoom-out') {
-                        motionScale = (1.0 + ZOOM_INTENSITY) - (progress * ZOOM_INTENSITY);
+                        motionScale = (1.0 + ZOOM_FACTOR) - (progress * ZOOM_FACTOR);
                     } else if (clip.motionType === 'pan-left') {
-                        motionScale = 1.0 + PAN_INTENSITY;
+                        motionScale = 1.0 + PAN_FACTOR;
                         const maxOffset = dw * (motionScale - 1) / 2;
                         motionOffsetX = -maxOffset + (progress * 2 * maxOffset);
                     } else if (clip.motionType === 'pan-right') {
-                        motionScale = 1.0 + PAN_INTENSITY;
+                        motionScale = 1.0 + PAN_FACTOR;
                         const maxOffset = dw * (motionScale - 1) / 2;
                         motionOffsetX = maxOffset - (progress * 2 * maxOffset);
                     } else if (clip.motionType === 'pan-up') {
-                        motionScale = 1.0 + PAN_INTENSITY;
+                        motionScale = 1.0 + PAN_FACTOR;
                         const maxOffset = dh * (motionScale - 1) / 2;
                         motionOffsetY = -maxOffset + (progress * 2 * maxOffset);
                     } else if (clip.motionType === 'pan-down') {
-                        motionScale = 1.0 + PAN_INTENSITY;
+                        motionScale = 1.0 + PAN_FACTOR;
                         const maxOffset = dh * (motionScale - 1) / 2;
                         motionOffsetY = maxOffset - (progress * 2 * maxOffset);
                     }

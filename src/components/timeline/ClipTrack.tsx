@@ -40,7 +40,9 @@ export const ClipTrack: React.FC = () => {
             transitionType: 'cut',
             transitionDurationMs: 0,
             fitMode: 'fit',
-            motionType: 'none'
+            motionType: 'none',
+            motionIntensity: 0.1,
+            motionSpeed: 0.5
         };
 
         addClip(newClip);

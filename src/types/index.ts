@@ -31,6 +31,8 @@ export interface Clip {
     transitionDurationMs: number; // Used if type is 'dissolve', creates overlap
     fitMode: FitMode;
     motionType: MotionType;
+    motionIntensity: number; // 0.0 to 1.0 (amount of zoom/pan)
+    motionSpeed: number;     // 0.0 to 1.0 (lerp speed/curve)
 }
 
 export interface ProjectData {
