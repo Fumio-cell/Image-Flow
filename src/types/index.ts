@@ -33,6 +33,8 @@ export interface Clip {
     motionType: MotionType;
     motionIntensity: number; // 0.0 to 1.0 (amount of zoom/pan)
     motionSpeed: number;     // 0.0 to 1.0 (lerp speed/curve)
+    glitchAmount?: number;    // 0.0 to 1.0 (probability/frequency)
+    glitchIntensity?: number; // 0.0 to 1.0 (magnitude)
 }
 
 export interface ProjectData {

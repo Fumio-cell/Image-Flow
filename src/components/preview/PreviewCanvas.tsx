@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ImageCache } from '../../utils/imageCache';
 import { drawDownscaledImage } from '../../utils/imageDownscaler';
+import { applyGlitch } from '../../utils/glitchRenderer';
 
 export const PreviewCanvas: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -169,6 +170,14 @@ export const PreviewCanvas: React.FC = () => {
                 }
 
                 drawDownscaledImage(ctx, img, dx, dy, dw, dh);
+
+                if (clip.glitchAmount && clip.glitchIntensity) {
+                    applyGlitch(ctx, dx, dy, dw, dh, {
+                        amount: clip.glitchAmount,
+                        intensity: clip.glitchIntensity,
+                        seed: playheadMs
+                    });
+                }
 
                 ctx.globalAlpha = 1.0; // reset
             }

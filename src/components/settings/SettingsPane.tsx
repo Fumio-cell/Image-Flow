@@ -46,7 +46,7 @@ const RangeField: React.FC<{
     onChange: (v: number) => void;
 }> = ({ label, value, min, max, step = 0.01, onChange }) => {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', marginBottom: '0.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
                 <span style={{ fontSize: '10px', color: 'var(--text-accent)' }}>{value.toFixed(2)}</span>
@@ -88,7 +88,7 @@ export const SettingsPane: React.FC = () => {
     const overlapMs = prevClip ? Math.max(0, prevEnd - clip.startTimeMs) : 0;
 
     return (
-        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem' }}>
+        <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '0.75rem' }}>
             <h3 style={{ fontSize: '14px', margin: 0 }}>Clip Settings</h3>
 
             <NumberField
@@ -117,31 +117,30 @@ export const SettingsPane: React.FC = () => {
             </div>
 
             {clip.transitionType === 'dissolve' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.4rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
                     {clipIndex === 0 ? (
-                        <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            ⚠️ 最初のクリップではDissolveは効きません。2つ目以降のクリップに設定してください。
+                        <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            Transition not available for the first clip.
                         </label>
                     ) : overlapMs > 0 ? (
-                        <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            ✅ 前のクリップと {overlapMs}ms 重なっています。この重なり部分でクロスフェードします。
+                        <label style={{ fontSize: '10px', color: 'var(--text-accent)' }}>
+                            Overlap: {overlapMs}ms
                         </label>
                     ) : (
-                        <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            ⚠️ 前のクリップと重なっていません。Start Timeを調整して前のクリップと重なるようにするか、下のボタンでオーバーラップを自動設定してください。
+                        <label style={{ fontSize: '10px', color: 'var(--text-danger)' }}>
+                            No overlap with previous clip.
                         </label>
                     )}
                     {clipIndex > 0 && overlapMs <= 0 && prevClip && (
                         <button
                             className="btn btn-secondary"
-                            style={{ fontSize: '11px' }}
+                            style={{ fontSize: '10px', padding: '2px 4px' }}
                             onClick={() => {
-                                // Move this clip back to overlap with previous by 500ms
                                 const newStart = Math.max(0, prevEnd - 500);
                                 updateClip(clip.id, { startTimeMs: newStart });
                             }}
                         >
-                            自動オーバーラップ (500ms)
+                            Auto Overlap (500ms)
                         </button>
                     )}
                 </div>
@@ -173,8 +172,7 @@ export const SettingsPane: React.FC = () => {
                     <option value="pan-up">Pan Up</option>
                     <option value="pan-down">Pan Down</option>
                 </select>
-
-                <div style={{ padding: '0.5rem', marginTop: '0.25rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)', display: (clip.motionType && clip.motionType !== 'none') ? 'block' : 'none' }}>
+                <div style={{ padding: '0.4rem', marginTop: '0.2rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)', display: (clip.motionType && clip.motionType !== 'none') ? 'block' : 'none' }}>
                     <RangeField
                         label="Motion Intensity"
                         value={clip.motionIntensity !== undefined ? clip.motionIntensity : 0.1}
@@ -189,9 +187,26 @@ export const SettingsPane: React.FC = () => {
                         max={1.0}
                         onChange={(v) => updateClip(clip.id, { motionSpeed: v })}
                     />
-                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '0.25rem 0 0 0' }}>
-                        Low Speed = Gentle Start | High Intensity = More Movement
-                    </p>
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Glitch Effect</label>
+                <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                    <RangeField
+                        label="Glitch Amount"
+                        value={clip.glitchAmount !== undefined ? clip.glitchAmount : 0.0}
+                        min={0.0}
+                        max={1.0}
+                        onChange={(v) => updateClip(clip.id, { glitchAmount: v })}
+                    />
+                    <RangeField
+                        label="Glitch Intensity"
+                        value={clip.glitchIntensity !== undefined ? clip.glitchIntensity : 0.0}
+                        min={0.0}
+                        max={1.0}
+                        onChange={(v) => updateClip(clip.id, { glitchIntensity: v })}
+                    />
                 </div>
             </div>
 

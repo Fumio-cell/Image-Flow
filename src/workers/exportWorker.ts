@@ -1,6 +1,7 @@
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import type { Clip, ProjectSettings } from '../types';
 import { drawDownscaledImage } from '../utils/imageDownscaler';
+import { applyGlitch } from '../utils/glitchRenderer';
 
 export interface ExportWorkerData {
     settings: ProjectSettings;
@@ -173,6 +174,15 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 }
 
                 drawDownscaledImage(ctx as any, img as any, dx, dy, dw, dh);
+                
+                if (clip.glitchAmount && clip.glitchIntensity) {
+                    applyGlitch(ctx as any, dx, dy, dw, dh, {
+                        amount: clip.glitchAmount,
+                        intensity: clip.glitchIntensity,
+                        seed: currentTimeMs
+                    });
+                }
+
                 ctx.globalAlpha = 1.0;
             }
 
