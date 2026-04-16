@@ -210,6 +210,21 @@ export const SettingsPane: React.FC = () => {
                 </div>
             </div>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Audio Reactive VJ Mode</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                    <input 
+                        type="checkbox" 
+                        id="audioReactive"
+                        checked={!!clip.audioReactive}
+                        onChange={(e) => updateClip(clip.id, { audioReactive: e.target.checked })}
+                    />
+                    <label htmlFor="audioReactive" style={{ fontSize: '11px', color: 'var(--text-main)', cursor: 'pointer' }}>
+                        Sync Zoom & Glitch to Audio Beats
+                    </label>
+                </div>
+            </div>
+
             <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--panel-border)' }}>
                 <button className="btn btn-danger" style={{ width: '100%' }} onClick={() => removeClip(clip.id)}>
                     Delete Clip

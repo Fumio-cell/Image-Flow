@@ -55,10 +55,29 @@ export const PreviewCanvas: React.FC = () => {
                 }
             }
 
+            // Extract Audio Level (Peak)
+            const audioClips = activeClips.filter(c => {
+                const a = assets.find(ast => ast.id === c.assetId);
+                return a && a.type === 'audio';
+            });
+            let currentAudioLevel = 0;
+            if (audioClips.length > 0) {
+                for (const ac of audioClips) {
+                    const asset = assets.find(a => a.id === ac.assetId);
+                    if (asset?.peaks && asset.peaks.length > 0 && asset.duration) {
+                        const localMs = playheadMs - ac.startTimeMs;
+                        const prog = localMs / asset.duration;
+                        const idx = Math.floor(prog * asset.peaks.length);
+                        if (idx >= 0 && idx < asset.peaks.length) {
+                             currentAudioLevel = Math.max(currentAudioLevel, asset.peaks[idx]);
+                        }
+                    }
+                }
+            }
+
             // ONLY clear the background when we are ready to draw to prevent flickering
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, width, height);
-
             // Enable high-quality image smoothing to prevent moiré patterns
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
@@ -158,11 +177,15 @@ export const PreviewCanvas: React.FC = () => {
                         motionOffsetY = maxOffset - (progress * 2 * maxOffset);
                     }
 
+                    // VJ Mode: Audio Reactivity boosts the zoom scale
+                    if (clip.audioReactive && currentAudioLevel > 0.05) {
+                        motionScale += (currentAudioLevel * ZOOM_FACTOR * 3.0);
+                    }
+
                     const cx = dx + dw / 2;
                     const cy = dy + dh / 2;
                     const newW = dw * motionScale;
                     const newH = dh * motionScale;
-
                     dx = cx - newW / 2 + motionOffsetX;
                     dy = cy - newH / 2 + motionOffsetY;
                     dw = newW;
@@ -172,9 +195,16 @@ export const PreviewCanvas: React.FC = () => {
                 drawDownscaledImage(ctx, img, dx, dy, dw, dh);
 
                 if (clip.glitchAmount && clip.glitchIntensity) {
+                    let finalAmount = clip.glitchAmount;
+                    let finalIntensity = clip.glitchIntensity;
+                    if (clip.audioReactive && currentAudioLevel > 0.1) {
+                        finalAmount = Math.min(1.0, finalAmount + currentAudioLevel * 0.5);
+                        finalIntensity = Math.min(1.0, finalIntensity + currentAudioLevel * 0.8);
+                    }
+
                     applyGlitch(ctx, dx, dy, dw, dh, {
-                        amount: clip.glitchAmount,
-                        intensity: clip.glitchIntensity,
+                        amount: finalAmount,
+                        intensity: finalIntensity,
                         seed: playheadMs
                     });
                 }

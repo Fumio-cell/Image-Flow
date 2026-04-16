@@ -35,6 +35,7 @@ export interface Clip {
     motionSpeed: number;     // 0.0 to 1.0 (lerp speed/curve)
     glitchAmount?: number;    // 0.0 to 1.0 (probability/frequency)
     glitchIntensity?: number; // 0.0 to 1.0 (magnitude)
+    audioReactive?: boolean;  // Enage VJ Mode (Audio reacts to zoom/glitch)
 }
 
 export interface ProjectData {
