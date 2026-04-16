@@ -34,7 +34,7 @@ function App() {
       const newAssets: AssetItem[] = [];
       const isAudioType = (f: File) => f.type.startsWith('audio/') || f.name.endsWith('.wav') || f.name.endsWith('.mp3') || f.name.endsWith('.m4a');
 
-      useProjectStore.getState().ui.isPlaying = false; // pause playback while dropping
+      useProjectStore.getState().setIsPlaying(false); // pause playback while dropping
 
       for (const file of files) {
           const isImage = file.type.startsWith('image/');
