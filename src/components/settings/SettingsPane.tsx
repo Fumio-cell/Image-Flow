@@ -71,11 +71,44 @@ export const SettingsPane: React.FC = () => {
     const updateClip = useProjectStore((s) => s.updateClip);
     const removeClip = useProjectStore((s) => s.removeClip);
 
+    const settings = useProjectStore((s) => s.data.settings);
+    const updateSettings = useProjectStore((s) => s.updateSettings);
+
     if (!clip) {
         return (
-            <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '100%', color: 'var(--text-muted)' }}>
-                <h3 style={{ fontSize: '14px', margin: 0, marginBottom: '1rem', color: 'var(--text-main)' }}>Settings</h3>
-                <p style={{ fontSize: '12px', textAlign: 'center', marginTop: '2rem' }}>No clip selected.</p>
+            <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', color: 'var(--text-muted)' }}>
+                <h3 style={{ fontSize: '14px', margin: 0, color: 'var(--text-main)' }}>Project Settings</h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export Resolution</label>
+                    <select
+                        value={settings.resolution}
+                        onChange={(e) => updateSettings({ resolution: e.target.value as any })}
+                        style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
+                    >
+                        <option value="1280x720">HD (1280x720)</option>
+                        <option value="1920x1080">Full HD (1920x1080)</option>
+                        <option value="1920x1920">Square (1920x1920)</option>
+                        <option value="3840x2160">4K UHD (3840x2160)</option>
+                    </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Framerate (FPS)</label>
+                    <select
+                        value={settings.fps}
+                        onChange={(e) => updateSettings({ fps: parseInt(e.target.value, 10) as any })}
+                        style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
+                    >
+                        <option value="24">24 FPS (Cinematic)</option>
+                        <option value="30">30 FPS (Standard)</option>
+                        <option value="60">60 FPS (Smooth)</option>
+                    </select>
+                </div>
+                
+                <div style={{ marginTop: 'auto', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '11px', textAlign: 'center' }}>
+                    Select a clip on the timeline below to edit its properties.
+                </div>
             </div>
         );
     }
