@@ -207,6 +207,13 @@ export const SettingsPane: React.FC = () => {
                         max={1.0}
                         onChange={(v) => updateClip(clip.id, { glitchIntensity: v })}
                     />
+                    <RangeField
+                        label="Glitch Displacement (Tear)"
+                        value={clip.glitchDisplacement !== undefined ? clip.glitchDisplacement : 0.0}
+                        min={0.0}
+                        max={1.0}
+                        onChange={(v) => updateClip(clip.id, { glitchDisplacement: v })}
+                    />
                 </div>
             </div>
 

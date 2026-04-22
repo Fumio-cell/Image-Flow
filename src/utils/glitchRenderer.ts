@@ -5,6 +5,7 @@
 interface GlitchParams {
     amount: number;      // 0.0 to 1.0 (frequency/density)
     intensity: number;   // 0.0 to 1.0 (shift magnitude)
+    displacement?: number; // 0.0 to 1.0 (horizontal tearing)
     seed: number;        // deterministic seed (e.g., playheadMs)
 }
 
@@ -28,6 +29,25 @@ export function applyGlitch(
 
     const glitchSeed = Math.floor(seed);
     const r = random(glitchSeed);
+
+    const displacementParams = params.displacement || 0;
+    
+    // 0. Horizontal Displacement (Tear) Map Effect
+    if (displacementParams > 0 && r < amount) {
+        // Massive number of thin strips covering the canvas
+        const tearCount = Math.floor(random(glitchSeed + 50) * 100 * displacementParams) + 10;
+        for (let i = 0; i < tearCount; i++) {
+            const hRatio = random(glitchSeed + i * 3 + 51) * 0.03 * displacementParams + 0.005; // Thin slices
+            const yRatio = random(glitchSeed + i * 3 + 52) * (1.0 - hRatio);
+            
+            const sh = dh * hRatio;
+            const sy = dy + dh * yRatio;
+            
+            const shiftX = (random(glitchSeed + i * 3 + 53) - 0.5) * dw * 0.8 * displacementParams;
+            
+            ctx.drawImage(ctx.canvas, dx, sy, dw, sh, dx + shiftX, sy, dw, sh);
+        }
+    }
 
     // 1. Horizontal Strip Shifts
     const numStrips = Math.floor(2 + random(glitchSeed + 1) * 15 * amount);

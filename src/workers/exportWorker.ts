@@ -179,6 +179,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                     applyGlitch(ctx as any, dx, dy, dw, dh, {
                         amount: clip.glitchAmount,
                         intensity: clip.glitchIntensity,
+                        displacement: clip.glitchDisplacement || 0.0,
                         seed: currentTimeMs
                     });
                 }

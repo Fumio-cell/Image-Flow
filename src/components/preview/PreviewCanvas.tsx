@@ -197,14 +197,17 @@ export const PreviewCanvas: React.FC = () => {
                 if (clip.glitchAmount && clip.glitchIntensity) {
                     let finalAmount = clip.glitchAmount;
                     let finalIntensity = clip.glitchIntensity;
+                    let finalDisplace = clip.glitchDisplacement || 0.0;
                     if (clip.audioReactive && currentAudioLevel > 0.1) {
                         finalAmount = Math.min(1.0, finalAmount + currentAudioLevel * 0.5);
                         finalIntensity = Math.min(1.0, finalIntensity + currentAudioLevel * 0.8);
+                        if (finalDisplace > 0) finalDisplace = Math.min(1.0, finalDisplace + currentAudioLevel);
                     }
 
                     applyGlitch(ctx, dx, dy, dw, dh, {
                         amount: finalAmount,
                         intensity: finalIntensity,
+                        displacement: finalDisplace,
                         seed: playheadMs
                     });
                 }
