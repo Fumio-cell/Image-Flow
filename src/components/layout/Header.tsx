@@ -45,7 +45,12 @@ export const Header: React.FC = () => {
         <header className="toolkit-header">
             <div className="header-left">
                 <div className="toolkit-brand">
-                    <svg className="brand-icon" viewBox="0 0 48 48" fill="none"><path d="M10 10 L38 10 Q36 18 38 24 Q40 30 38 38 L10 38 Q12 30 10 24 Q8 18 10 10Z" stroke="#7c5cfc" strokeWidth="1.2" fill="none" opacity="0.4"/><path d="M12 18 Q20 14 28 20 Q36 26 38 18" stroke="#7c5cfc" strokeWidth="1.5" fill="none" strokeLinecap="round"/><path d="M10 26 Q18 22 26 28 Q34 34 40 26" stroke="#5ce0fc" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+                    <svg className="brand-icon" width="28" height="28" viewBox="0 0 48 48" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 24 L20 16 L26 24 L20 32 Z"/>
+                        <circle cx="20" cy="24" r="1.6" fill="rgba(255,255,255,0.75)" stroke="none"/>
+                        <path d="M26 24 L34 24"/>
+                        <circle cx="36" cy="24" r="2.4"/>
+                    </svg>
                     <span className="toolkit-name">Poetic Signal Toolkit</span>
                 </div>
                 <div className="app-separator">/</div>
@@ -89,7 +94,7 @@ export const Header: React.FC = () => {
                     padding: 0.75rem 1.5rem;
                     background: rgba(15, 23, 42, 0.85);
                     backdrop-filter: blur(12px);
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                    border-bottom: 1px solid #9E3D3F;
                     position: sticky;
                     top: 0;
                     z-index: 1000;
@@ -112,10 +117,12 @@ export const Header: React.FC = () => {
                     height: 32px;
                 }
                 .toolkit-name {
-                    font-size: 20px;
-                    font-weight: 800;
-                    letter-spacing: -0.02em;
-                    color: #fff;
+                    font-family: 'Fraunces', serif;
+                    font-size: 18px;
+                    font-weight: 500;
+                    font-optical-sizing: auto;
+                    letter-spacing: 0.01em;
+                    color: rgba(255, 255, 255, 0.9);
                 }
                 .app-separator {
                     color: rgba(255, 255, 255, 0.2);
