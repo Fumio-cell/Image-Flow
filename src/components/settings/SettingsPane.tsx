@@ -146,10 +146,13 @@ export const SettingsPane: React.FC = () => {
                 >
                     <option value="cut">Cut</option>
                     <option value="dissolve">Dissolve</option>
+                    <option value="delta-flow">Delta Flow</option>
+                    <option value="glitch">Glitch</option>
+                    <option value="breathing-morph">Breathing Morph</option>
                 </select>
             </div>
 
-            {clip.transitionType === 'dissolve' && (
+            {(clip.transitionType === 'dissolve' || clip.transitionType === 'delta-flow' || clip.transitionType === 'glitch' || clip.transitionType === 'breathing-morph') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.4rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
                     {clipIndex === 0 ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
@@ -223,32 +226,85 @@ export const SettingsPane: React.FC = () => {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Glitch Effect</label>
-                <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
-                    <RangeField
-                        label="Glitch Amount"
-                        value={clip.glitchAmount !== undefined ? clip.glitchAmount : 0.0}
-                        min={0.0}
-                        max={1.0}
-                        onChange={(v) => updateClip(clip.id, { glitchAmount: v })}
-                    />
-                    <RangeField
-                        label="Glitch Intensity"
-                        value={clip.glitchIntensity !== undefined ? clip.glitchIntensity : 0.0}
-                        min={0.0}
-                        max={1.0}
-                        onChange={(v) => updateClip(clip.id, { glitchIntensity: v })}
-                    />
-                    <RangeField
-                        label="Glitch Displacement (Tear)"
-                        value={clip.glitchDisplacement !== undefined ? clip.glitchDisplacement : 0.0}
-                        min={0.0}
-                        max={1.0}
-                        onChange={(v) => updateClip(clip.id, { glitchDisplacement: v })}
-                    />
+            {clip.transitionType === 'delta-flow' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Delta Flow</label>
+                    <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                        <RangeField
+                            label="Sensitivity"
+                            value={clip.deltaFlowSensitivity !== undefined ? clip.deltaFlowSensitivity : 0.55}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { deltaFlowSensitivity: v })}
+                        />
+                        <RangeField
+                            label="Flow Strength"
+                            value={clip.deltaFlowStrength !== undefined ? clip.deltaFlowStrength : 0.60}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { deltaFlowStrength: v })}
+                        />
+                        <RangeField
+                            label="Noise Amount"
+                            value={clip.deltaFlowNoiseAmount !== undefined ? clip.deltaFlowNoiseAmount : 0.30}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { deltaFlowNoiseAmount: v })}
+                        />
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {clip.transitionType === 'breathing-morph' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Breathing Morph</label>
+                    <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                        <RangeField
+                            label="Turbulence"
+                            value={clip.breathingTurbulence !== undefined ? clip.breathingTurbulence : 0.5}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { breathingTurbulence: v })}
+                        />
+                        <RangeField
+                            label="Swirl"
+                            value={clip.breathingSwirl !== undefined ? clip.breathingSwirl : 0.5}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { breathingSwirl: v })}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {clip.transitionType === 'glitch' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Glitch</label>
+                    <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                        <RangeField
+                            label="Glitch Amount"
+                            value={clip.glitchAmount !== undefined ? clip.glitchAmount : 0.0}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { glitchAmount: v })}
+                        />
+                        <RangeField
+                            label="Glitch Intensity"
+                            value={clip.glitchIntensity !== undefined ? clip.glitchIntensity : 0.0}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { glitchIntensity: v })}
+                        />
+                        <RangeField
+                            label="Glitch Displacement (Tear)"
+                            value={clip.glitchDisplacement !== undefined ? clip.glitchDisplacement : 0.0}
+                            min={0.0}
+                            max={1.0}
+                            onChange={(v) => updateClip(clip.id, { glitchDisplacement: v })}
+                        />
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Audio Reactive VJ Mode</label>

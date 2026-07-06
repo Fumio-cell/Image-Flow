@@ -2,6 +2,10 @@ import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 import type { Clip, ProjectSettings } from '../types';
 import { drawDownscaledImage } from '../utils/imageDownscaler';
 import { applyGlitch } from '../utils/glitchRenderer';
+import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../utils/deltaFlowRenderer';
+import { DeltaFlowFieldCache } from '../utils/deltaFlowFieldCache';
+import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/breathingMorphRenderer';
+import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
 
 export interface ExportWorkerData {
     settings: ProjectSettings;
@@ -87,15 +91,45 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 const img = bitmapObj.bitmap;
 
                 let alpha = 1.0;
-                if (clip.transitionType === 'dissolve') {
-                    const clipIndex = sortedAllClips.findIndex(c => c.id === clip.id);
-                    if (clipIndex > 0) {
-                        const prevClip = sortedAllClips[clipIndex - 1];
-                        const prevEnd = prevClip.startTimeMs + prevClip.durationMs;
-                        const overlapMs = Math.max(0, prevEnd - clip.startTimeMs);
+                let deltaFlowPrevImg: ImageBitmap | null = null;
+                let deltaFlowPairKey: string | null = null;
+                let deltaFlowProgress = 1;
 
-                        if (overlapMs > 0 && currentTimeMs < clip.startTimeMs + overlapMs) {
-                            alpha = (currentTimeMs - clip.startTimeMs) / overlapMs;
+                // Breathing Morph: same overlap-driven pattern as Delta Flow
+                let breathingMorphPrevImg: ImageBitmap | null = null;
+                let breathingMorphPairKey: string | null = null;
+                let breathingMorphProgress = 1;
+
+                // Progress (0..1) within the overlap with the previous clip, or null
+                // if there's no overlap right now. Independent of transitionType so
+                // Glitch can gate on it regardless of which transition is selected.
+                let overlapProgress: number | null = null;
+
+                const clipIndex = sortedAllClips.findIndex(c => c.id === clip.id);
+                if (clipIndex > 0) {
+                    const prevClip = sortedAllClips[clipIndex - 1];
+                    const prevEnd = prevClip.startTimeMs + prevClip.durationMs;
+                    const overlapMs = Math.max(0, prevEnd - clip.startTimeMs);
+
+                    if (overlapMs > 0 && currentTimeMs < clip.startTimeMs + overlapMs) {
+                        overlapProgress = (currentTimeMs - clip.startTimeMs) / overlapMs;
+
+                        if (clip.transitionType === 'dissolve') {
+                            alpha = overlapProgress;
+                        } else if (clip.transitionType === 'delta-flow') {
+                            deltaFlowProgress = overlapProgress;
+                            const prevBitmapObj = imageBitmaps.find(b => b.assetId === prevClip.assetId);
+                            if (prevBitmapObj) {
+                                deltaFlowPrevImg = prevBitmapObj.bitmap;
+                                deltaFlowPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
+                            }
+                        } else if (clip.transitionType === 'breathing-morph') {
+                            breathingMorphProgress = overlapProgress;
+                            const prevBitmapObj = imageBitmaps.find(b => b.assetId === prevClip.assetId);
+                            if (prevBitmapObj) {
+                                breathingMorphPrevImg = prevBitmapObj.bitmap;
+                                breathingMorphPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
+                            }
                         }
                     }
                 }
@@ -173,9 +207,35 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                     dh = newH;
                 }
 
-                drawDownscaledImage(ctx as any, img as any, dx, dy, dw, dh);
-                
-                if (clip.glitchAmount && clip.glitchIntensity) {
+                if (clip.transitionType === 'delta-flow' && deltaFlowPrevImg && deltaFlowPairKey) {
+                    const sensitivity = clip.deltaFlowSensitivity ?? 0.55;
+                    const strength = clip.deltaFlowStrength ?? 0.60;
+                    const noiseAmount = clip.deltaFlowNoiseAmount ?? 0.30;
+
+                    const field = DeltaFlowFieldCache.getField(deltaFlowPairKey, deltaFlowPrevImg, img, sensitivity, DELTA_FLOW_WORK_RES, dw, dh);
+
+                    renderDeltaFlowFrame(
+                        ctx as any, field, deltaFlowProgress,
+                        { sensitivity, strength, noiseAmount },
+                        dx, dy, dw, dh
+                    );
+                } else if (clip.transitionType === 'breathing-morph' && breathingMorphPrevImg && breathingMorphPairKey) {
+                    const turbulence = clip.breathingTurbulence ?? 0.5;
+                    const swirl = clip.breathingSwirl ?? 0.5;
+
+                    const field = BreathingMorphFieldCache.getField(breathingMorphPairKey, breathingMorphPrevImg, img, BREATHING_MORPH_WORK_RES, dw, dh);
+
+                    renderBreathingMorphFrame(
+                        ctx as any, field, breathingMorphProgress,
+                        { turbulence, swirl },
+                        dx, dy, dw, dh
+                    );
+                } else {
+                    drawDownscaledImage(ctx as any, img as any, dx, dy, dw, dh);
+                }
+
+                // Glitch transition: fires only during the overlap with the previous clip
+                if (clip.transitionType === 'glitch' && clip.glitchAmount && clip.glitchIntensity && overlapProgress !== null) {
                     applyGlitch(ctx as any, dx, dy, dw, dh, {
                         amount: clip.glitchAmount,
                         intensity: clip.glitchIntensity,

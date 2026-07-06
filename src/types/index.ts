@@ -18,7 +18,7 @@ export interface AssetItem {
     peaks?: number[]; // Extracted waveform
 }
 
-export type TransitionType = 'cut' | 'dissolve';
+export type TransitionType = 'cut' | 'dissolve' | 'delta-flow' | 'glitch' | 'breathing-morph';
 export type FitMode = 'fit' | 'fill' | 'center';
 export type MotionType = 'none' | 'zoom-in' | 'zoom-out' | 'pan-left' | 'pan-right' | 'pan-up' | 'pan-down';
 
@@ -37,6 +37,11 @@ export interface Clip {
     glitchIntensity?: number; // 0.0 to 1.0 (magnitude)
     glitchDisplacement?: number; // 0.0 to 1.0 (horizontal tearing displacement)
     audioReactive?: boolean;  // Enage VJ Mode (Audio reacts to zoom/glitch)
+    deltaFlowSensitivity?: number;  // 0.0 to 1.0 (how broadly small differences react)
+    deltaFlowStrength?: number;     // 0.0 to 1.0 (displacement magnitude)
+    deltaFlowNoiseAmount?: number;  // 0.0 to 1.0 (organic wobble amount)
+    breathingTurbulence?: number;   // 0.0 to 1.0 (organic noise wobble amount)
+    breathingSwirl?: number;        // 0.0 to 1.0 (vortex rotation amount)
 }
 
 export interface ProjectData {

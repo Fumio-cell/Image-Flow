@@ -1,12 +1,14 @@
 import React, { useRef } from 'react';
-import { Music, Plus } from 'lucide-react';
+import { Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData } from '../../utils/audioUtils';
 import type { AssetItem } from '../../types';
 
 export const AssetPane: React.FC = () => {
     const assets = useProjectStore((s) => s.data.assets);
+    const clips = useProjectStore((s) => s.data.clips);
     const addAssets = useProjectStore((s) => s.addAssets);
+    const removeAsset = useProjectStore((s) => s.removeAsset);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,35 +92,56 @@ export const AssetPane: React.FC = () => {
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                        {assets.map(asset => (
-                            <div key={asset.id} style={{
-                                border: '1px solid var(--panel-border)',
-                                borderRadius: 'var(--radius-sm)',
-                                overflow: 'hidden',
-                                backgroundColor: 'var(--bg-color)',
-                                position: 'relative',
-                                cursor: 'grab'
-                            }}
-                                draggable
-                                onDragStart={(e) => {
-                                    e.dataTransfer.setData('text/plain', asset.id);
-                                }}>
-                                {asset.type === 'image' ? (
-                                    <img src={asset.objectUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
-                                ) : (
-                                    <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Music size={24} color="var(--text-muted)" />
+                        {assets.map(asset => {
+                            const usageCount = clips.filter(c => c.assetId === asset.id).length;
+                            return (
+                                <div key={asset.id} style={{
+                                    border: '1px solid var(--panel-border)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    overflow: 'hidden',
+                                    backgroundColor: 'var(--bg-color)',
+                                    position: 'relative',
+                                    cursor: 'grab'
+                                }}
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData('text/plain', asset.id);
+                                    }}>
+                                    {asset.type === 'image' ? (
+                                        <img src={asset.objectUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                    ) : (
+                                        <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Music size={24} color="var(--text-muted)" />
+                                        </div>
+                                    )}
+                                    <button
+                                        className="btn btn-icon"
+                                        title={usageCount > 0 ? `Delete (also removes ${usageCount} clip${usageCount > 1 ? 's' : ''} using it)` : 'Delete'}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeAsset(asset.id);
+                                        }}
+                                        style={{
+                                            position: 'absolute', top: 2, right: 2,
+                                            width: 20, height: 20,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            backgroundColor: 'rgba(0,0,0,0.65)',
+                                            border: 'none', borderRadius: '50%',
+                                            cursor: 'pointer', color: 'white', padding: 0
+                                        }}
+                                    >
+                                        <Trash2 size={11} />
+                                    </button>
+                                    <div style={{
+                                        position: 'absolute', bottom: 0, left: 0, right: 0,
+                                        backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 4px', fontSize: '10px',
+                                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                                    }}>
+                                        {asset.name}
                                     </div>
-                                )}
-                                <div style={{
-                                    position: 'absolute', bottom: 0, left: 0, right: 0,
-                                    backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 4px', fontSize: '10px',
-                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                                }}>
-                                    {asset.name}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

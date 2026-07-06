@@ -33,6 +33,7 @@ interface ProjectStoreActions {
     // Assets
     addAssets: (assets: AssetItem[]) => void;
     updateAsset: (id: string, updates: Partial<AssetItem>) => void;
+    removeAsset: (id: string) => void;
     reorderComponents?: () => void; // if needed
 
     // Clips
@@ -170,6 +171,33 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
                 assets: state.data.assets.map(a => a.id === id ? { ...a, ...updates } : a)
             }
         }));
+    },
+
+    removeAsset: (id) => {
+        get()._saveHistory();
+        set((state) => {
+            const asset = state.data.assets.find(a => a.id === id);
+            if (asset?.objectUrl) URL.revokeObjectURL(asset.objectUrl);
+
+            // Clips referencing this asset no longer have anything to render, so drop them too
+            const removedClipIds = new Set(
+                state.data.clips.filter(c => c.assetId === id).map(c => c.id)
+            );
+
+            return {
+                data: {
+                    ...state.data,
+                    assets: state.data.assets.filter(a => a.id !== id),
+                    clips: state.data.clips.filter(c => c.assetId !== id)
+                },
+                ui: {
+                    ...state.ui,
+                    selectedClipId: state.ui.selectedClipId && removedClipIds.has(state.ui.selectedClipId)
+                        ? null
+                        : state.ui.selectedClipId
+                }
+            };
+        });
     },
 
     addClip: (clip) => {
