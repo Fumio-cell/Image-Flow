@@ -11,11 +11,25 @@ export interface ExportWorkerData {
     settings: ProjectSettings;
     clips: Clip[];
     imageBitmaps: { assetId: string, bitmap: ImageBitmap }[];
+    audio?: {
+        channelData: Float32Array[]; // one entry per channel, decoded PCM
+        numberOfChannels: number;
+        sampleRate: number;
+    };
 }
+
+// AAC-LC per channel — 128kbps mono / 256kbps stereo, a solidly
+// high-quality/near-transparent range without ballooning export time.
+const AUDIO_BITRATE_PER_CHANNEL = 128_000;
+const AUDIO_CHUNK_FRAMES = 4096;
 
 self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
     console.log('[Worker] Received data:', e.data);
-    const { settings, clips, imageBitmaps } = e.data;
+    const { settings, clips, imageBitmaps, audio } = e.data;
+    const hasAudio = !!audio && audio.channelData.length > 0 && typeof AudioEncoder !== 'undefined';
+    if (audio && !hasAudio && typeof AudioEncoder === 'undefined') {
+        console.warn('[Worker] AudioEncoder not supported in this browser; exporting without audio.');
+    }
 
     const [wStr, hStr] = settings.resolution.split('x');
     const width = parseInt(wStr, 10);
@@ -49,6 +63,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 width,
                 height
             },
+            audio: hasAudio ? {
+                codec: 'aac',
+                numberOfChannels: audio!.numberOfChannels,
+                sampleRate: audio!.sampleRate
+            } : undefined,
             fastStart: 'in-memory'
         });
 
@@ -264,9 +283,66 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
             }
         }
 
-        console.log('[Worker] Render loop finished. Flushing encoder...');
+        console.log('[Worker] Render loop finished. Flushing video encoder...');
         await encoder.flush();
-        console.log('[Worker] Encoder flushed. Finalizing muxer...');
+        console.log('[Worker] Video encoder flushed.');
+
+        if (hasAudio) {
+            console.log('[Worker] Encoding audio track...');
+            const { channelData, numberOfChannels, sampleRate } = audio!;
+            // Truncate to the video's length — audio outlasting the picture
+            // would just play over a frozen/absent final frame.
+            const totalFrames = Math.min(
+                channelData[0].length,
+                Math.floor((maxDuration / 1000) * sampleRate)
+            );
+
+            if (totalFrames > 0) {
+                let audioEncoderError: Error | null = null;
+                const audioEncoder = new AudioEncoder({
+                    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta!),
+                    error: (err) => { audioEncoderError = err; }
+                });
+                audioEncoder.configure({
+                    codec: 'mp4a.40.2', // AAC-LC
+                    numberOfChannels,
+                    sampleRate,
+                    bitrate: AUDIO_BITRATE_PER_CHANNEL * numberOfChannels
+                });
+
+                let frameOffset = 0;
+                while (frameOffset < totalFrames) {
+                    const frames = Math.min(AUDIO_CHUNK_FRAMES, totalFrames - frameOffset);
+                    const planar = new Float32Array(frames * numberOfChannels);
+                    for (let c = 0; c < numberOfChannels; c++) {
+                        planar.set(channelData[c].subarray(frameOffset, frameOffset + frames), c * frames);
+                    }
+
+                    const audioData = new AudioData({
+                        format: 'f32-planar',
+                        sampleRate,
+                        numberOfFrames: frames,
+                        numberOfChannels,
+                        timestamp: Math.round((frameOffset / sampleRate) * 1_000_000),
+                        data: planar
+                    });
+                    audioEncoder.encode(audioData);
+                    audioData.close();
+                    frameOffset += frames;
+
+                    if (audioEncoder.encodeQueueSize > 30) {
+                        await new Promise(r => setTimeout(r, 10));
+                    }
+                }
+
+                await audioEncoder.flush();
+                audioEncoder.close();
+                if (audioEncoderError) throw audioEncoderError;
+                console.log('[Worker] Audio track encoded.');
+            }
+        }
+
+        console.log('[Worker] Finalizing muxer...');
         muxer.finalize();
         const buffer = muxer.target.buffer;
 

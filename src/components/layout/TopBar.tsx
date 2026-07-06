@@ -67,7 +67,7 @@ export const TopBar: React.FC = () => {
                     setExporting(false);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `vapor-flow-${Date.now()}.mp4`;
+                    a.download = `image-flow-${Date.now()}.mp4`;
                     a.style.display = 'none';
                     document.body.appendChild(a);
                     a.click();

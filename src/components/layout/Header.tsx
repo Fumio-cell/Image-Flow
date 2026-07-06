@@ -259,18 +259,18 @@ export const Header: React.FC = () => {
                     <div className="info-modal" onClick={e => e.stopPropagation()}>
                         <button className="info-close" onClick={() => setShowInfo(false)}><X className="w-5 h-5"/></button>
                         <h2>Image Flow</h2>
-                        <h3>Fluid Dynamics Image Distortion | 流体力学 画像ディストーション</h3>
-                        
+                        <h3>Fluid Dynamics Image Distortion &amp; Transitions | 流体力学 画像ディストーション &amp; トランジション</h3>
+
                         <div style={{ marginBottom: '24px' }}>
                             <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>EN</div>
-                            <p>Image Flow treats static pixels as liquid. Utilizing fluid dynamic simulations, this tool allows users to distort, push, pull, and warp images interactively. By setting viscosity, flow speed, and turbulence parameters, users can create melting, dripping, or swirling optical effects. It bridges the gap between static photography and mesmerizing digital flow arts.</p>
-                            <ul><li>Key Features: Fluid Simulation Integration, Interactive Warping, Distortion Mapping, Cinematic Exports.</li></ul>
+                            <p>Image Flow treats static pixels as liquid. Sequence photos on a timeline and bridge them with fluid transitions — an optical-flow Delta Flow warp, a swirling Breathing Morph vortex, or torn Glitch cuts — so each image melts, ripples, or spins into the next. Ken Burns motion and high-quality H.264 + AAC export turn a folder of stills into mesmerizing digital flow art.</p>
+                            <ul><li>Key Features: Delta Flow &amp; Breathing Morph transitions, Glitch cuts, Ken Burns motion, timeline-based editing, high-quality video + audio export.</li></ul>
                         </div>
 
                         <div>
                             <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>JP</div>
-                            <p>Image Flowは、静止画のピクセルを「液体」のように扱うビジュアルモジュレーターです。流体力学のシミュレーションを取り入れており、ユーザーの操作に応じて画像が溶け出したり、波打ったり、うねりを上げたりと、インタラクティブに歪ませることができます。粘度（Viscosity）や流速（Flow Speed）などの物理パラメータを調整することで、単なる写真から、催眠的で美しいデジタル・フローアートを創出します。</p>
-                            <ul><li>主要機能: 流体力学シミュレーション、インタラクティブなワーピング（歪み）、アーティスティックなエクスポート。</li></ul>
+                            <p>Image Flowは、静止画のピクセルを「液体」のように扱うビジュアルモジュレーターです。タイムライン上に写真を並べ、オプティカルフローで歪ませる「Delta Flow」、渦を巻くように変形する「Breathing Morph」、断片的に引き裂く「Glitch」といった流体的なトランジションで画像同士をつなぎ、溶け合い・波打ち・渦を巻くように次のカットへ移行させます。Ken Burns（ズーム・パン）モーションと、映像・音声ともに高音質な書き出しが、写真の集まりを催眠的なデジタル・フローアートへと昇華させます。</p>
+                            <ul><li>主要機能: Delta Flow / Breathing Morph トランジション、Glitchカット、Ken Burnsモーション、タイムライン編集、映像・音声高音質書き出し。</li></ul>
                         </div>
                     </div>
                 </div>,

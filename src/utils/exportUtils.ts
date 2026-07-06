@@ -22,6 +22,38 @@ export const startMP4Export = async (
             })
         );
 
+        // 1b. Decode the project's audio track (if any) to raw PCM so the
+        // worker can re-encode it at a high, consistent bitrate rather than
+        // just muxing the source file through untouched. Decoding requires
+        // an AudioContext, which isn't available inside the worker, so this
+        // has to happen here on the main thread.
+        let audioPayload: { channelData: Float32Array[]; numberOfChannels: number; sampleRate: number } | undefined;
+        const audioAsset = assets.find(a => a.type === 'audio');
+        if (audioAsset) {
+            try {
+                const arrayBuffer = await audioAsset.file.arrayBuffer();
+                const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+                // 48kHz: a standard, broadly-supported rate for AAC that also
+                // matches/exceeds most source material, so decoding into it
+                // here doubles as the resample step.
+                const audioCtx = new AudioContextCtor({ sampleRate: 48000 });
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const numberOfChannels = audioBuffer.numberOfChannels;
+                const channelData: Float32Array[] = [];
+                for (let c = 0; c < numberOfChannels; c++) {
+                    // .slice() copies out of the AudioBuffer's own storage so
+                    // the buffer we transfer to the worker is independent
+                    // (transferring detaches the underlying ArrayBuffer).
+                    channelData.push(audioBuffer.getChannelData(c).slice());
+                }
+                audioPayload = { channelData, numberOfChannels, sampleRate: audioBuffer.sampleRate };
+                await audioCtx.close();
+            } catch (err) {
+                console.error('[ExportUtils] Failed to decode audio for export; exporting without audio.', err);
+                audioPayload = undefined;
+            }
+        }
+
         // 2. Init worker
         console.log('[ExportUtils] Initializing Worker...');
         const worker = new Worker(new URL('../workers/exportWorker.ts', import.meta.url), { type: 'module' });
@@ -50,12 +82,17 @@ export const startMP4Export = async (
         };
 
         // 3. Start encode
-        console.log('[ExportUtils] Sending data to worker. Bitmaps length:', imageBitmaps.length);
+        console.log('[ExportUtils] Sending data to worker. Bitmaps length:', imageBitmaps.length, 'Audio:', !!audioPayload);
+        const transferList: Transferable[] = imageBitmaps.map(b => b.bitmap);
+        if (audioPayload) {
+            transferList.push(...audioPayload.channelData.map(c => c.buffer));
+        }
         worker.postMessage({
             settings,
             clips,
-            imageBitmaps
-        }, imageBitmaps.map(b => b.bitmap) as any); // Transfer ownership of bitmaps to worker
+            imageBitmaps,
+            audio: audioPayload
+        }, transferList); // Transfer ownership of bitmaps/audio buffers to worker
 
     } catch (err: any) {
         onError(err.message || String(err));
