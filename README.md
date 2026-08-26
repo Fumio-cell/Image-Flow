@@ -1,14 +1,14 @@
 # Image-Flow
 
-**Fluid Dynamics Image Distortion** | **流体力学 画像ディストーション**
+**Fluid Dynamics Clip Compositor** | **流体力学 クリップ・コンポジター**
 
 ### [ English ]
-Image Flow treats static pixels as liquid. Utilizing fluid dynamic simulations, this tool allows users to distort, push, pull, and warp images interactively. By setting viscosity, flow speed, and turbulence parameters, users can create melting, dripping, or swirling optical effects. It bridges the gap between static photography and mesmerizing digital flow arts.
-*   **Key Features:** Fluid Simulation Integration, Interactive Warping, Distortion Mapping, Cinematic Exports.
+Image Flow arranges image and video clips on a timeline and treats them as liquid. Fluid dynamic simulations — viscosity, flow speed, turbulence — melt, drip, and warp your clips, and any clip marked audio-reactive is driven in real time by an accompanying audio track. The result exports as an MP4 video.
+*   **Key Features:** Timeline-Based Clip Compositing, Fluid Simulation, Audio-Reactive Distortion, MP4 Export.
 
 ### [ 日本語 ]
-Image Flowは、静止画のピクセルを「液体」のように扱うビジュアルモジュレーターです。流体力学のシミュレーションを取り入れており、ユーザーの操作に応じて画像が溶け出したり、波打ったり、うねりを上げたりと、インタラクティブに歪ませることができます。粘度（Viscosity）や流速（Flow Speed）などの物理パラメータを調整することで、単なる写真から、催眠的で美しいデジタル・フローアートを創出します。
-*   **主要機能:** 流体力学シミュレーション、インタラクティブなワーピング（歪み）、アーティスティックなエクスポート。
+Image Flowは、画像や映像のクリップをタイムライン上に並べ、それらを液体のように扱うツールです。粘度・流速・乱流といった流体力学のパラメータにより、クリップを溶かし、滴らせ、歪ませます。オーディオ反応を有効にしたクリップは、同時に流れる音声トラックにリアルタイムで反応します。結果はMP4動画として書き出されます。
+*   **主要機能:** タイムラインベースのクリップ合成、流体力学シミュレーション、音声反応ディストーション、MP4書き出し。
 
 ---
 *Part of the Poetic Signal Toolkit*
