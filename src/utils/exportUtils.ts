@@ -137,10 +137,26 @@ export const startMP4Export = async (
         };
 
         worker.onerror = (err) => {
-            console.error('[ExportUtils] Worker onerror triggered:', err);
+            // A bare Event (no message) usually means the worker threw before it
+            // could report, or a structured-clone failure — surface everything we
+            // can rather than swallowing it.
+            const ev = err as ErrorEvent;
+            const detail = {
+                message: ev?.message || '(empty)',
+                filename: ev?.filename || '(none)',
+                lineno: ev?.lineno ?? -1,
+                colno: ev?.colno ?? -1,
+                stack: ev?.error?.stack || '(no stack)',
+                eventType: (err as Event)?.constructor?.name ?? typeof err,
+            };
+            console.error('[ExportUtils] Worker onerror triggered:', detail, err);
             worker.terminate();
             disposeVideos();
-            onError(err.message || 'Worker syntax or runtime error');
+            onError(
+                `Worker error: ${detail.message}\n` +
+                `at ${detail.filename}:${detail.lineno}:${detail.colno}\n` +
+                `event: ${detail.eventType}\n${detail.stack}`
+            );
         };
 
         // 3. Start encode

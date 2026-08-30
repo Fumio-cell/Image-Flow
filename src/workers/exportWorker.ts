@@ -62,7 +62,17 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
     }
 
     console.log('[Worker] Received export job');
-    const { settings, clips, imageBitmaps, videoAssets, audio } = e.data as ExportWorkerData;
+    const job = e.data as ExportWorkerData;
+    if (!job || !job.settings) {
+        // Should be impossible now that frame replies return early above, but if
+        // it ever happens again this reports instead of dying silently.
+        self.postMessage({
+            type: 'error',
+            error: `Worker received a message with no settings (keys: ${Object.keys(job ?? {}).join(',') || 'none'})`,
+        });
+        return;
+    }
+    const { settings, clips, imageBitmaps, videoAssets, audio } = job;
     const videoMetaById = new Map((videoAssets ?? []).map(v => [v.assetId, v]));
     const hasAudio = !!audio && audio.channelData.length > 0 && typeof AudioEncoder !== 'undefined';
     if (audio && !hasAudio && typeof AudioEncoder === 'undefined') {
