@@ -6,7 +6,7 @@ export interface ProjectSettings {
     fps: FPS;
 }
 
-export type AssetType = 'image' | 'audio';
+export type AssetType = 'image' | 'audio' | 'video';
 
 export interface AssetItem {
     id: string;
@@ -14,8 +14,11 @@ export interface AssetItem {
     file: File;
     objectUrl: string;
     name: string;
-    duration?: number; // Only for audio
+    duration?: number; // Milliseconds. Audio and video.
     peaks?: number[]; // Extracted waveform
+    posterUrl?: string; // Video thumbnail (data URL)
+    width?: number;  // Intrinsic pixel width (video)
+    height?: number; // Intrinsic pixel height (video)
 }
 
 export type TransitionType = 'cut' | 'dissolve' | 'delta-flow' | 'glitch' | 'breathing-morph';
@@ -27,6 +30,7 @@ export interface Clip {
     assetId: string; // Refers to AssetItem.id
     startTimeMs: number; // Position on timeline
     durationMs: number; // Length of clip
+    sourceInMs?: number; // Video only: offset into the source media where playback starts
     transitionType: TransitionType;
     transitionDurationMs: number; // Used if type is 'dissolve', creates overlap
     fitMode: FitMode;
