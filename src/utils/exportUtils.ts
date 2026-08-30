@@ -1,4 +1,11 @@
 import { useProjectStore } from '../store/useProjectStore';
+import { seekVideo } from './videoCache';
+
+interface FrameRequest {
+    clipId: string;
+    assetId: string;
+    sourceTimeMs: number;
+}
 
 export const startMP4Export = async (
     onProgress: (progress: number) => void,
@@ -21,6 +28,34 @@ export const startMP4Export = async (
                 return { assetId: a.id, bitmap };
             })
         );
+
+        // 1a. Prepare a <video> per video asset. The worker has no DOM, so it
+        // asks us for frames as it needs them and we seek/grab here.
+        const videoAssets = assets.filter(a => a.type === 'video');
+        const videoElements = new Map<string, HTMLVideoElement>();
+        await Promise.all(videoAssets.map(a => new Promise<void>((resolve) => {
+            const video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            video.preload = 'auto';
+            video.crossOrigin = 'anonymous';
+            const done = () => { videoElements.set(a.id, video); resolve(); };
+            video.onloadeddata = done;
+            video.onerror = () => {
+                console.error('[ExportUtils] Failed to load video for export:', a.name);
+                resolve(); // Export continues; this clip just won't draw.
+            };
+            video.src = a.objectUrl;
+            video.load();
+        })));
+
+        const disposeVideos = () => {
+            for (const v of videoElements.values()) {
+                v.removeAttribute('src');
+                v.load();
+            }
+            videoElements.clear();
+        };
 
         // 1b. Decode the project's audio track (if any) to raw PCM so the
         // worker can re-encode it at a high, consistent bitrate rather than
@@ -58,19 +93,45 @@ export const startMP4Export = async (
         console.log('[ExportUtils] Initializing Worker...');
         const worker = new Worker(new URL('../workers/exportWorker.ts', import.meta.url), { type: 'module' });
 
-        worker.onmessage = (e) => {
+        worker.onmessage = async (e) => {
+            if (e.data.type === 'requestVideoFrames') {
+                const { requestId, frames } = e.data as { requestId: number; frames: FrameRequest[] };
+                const bitmaps: { clipId: string; bitmap: ImageBitmap }[] = [];
+
+                for (const req of frames) {
+                    const video = videoElements.get(req.assetId);
+                    if (!video) continue;
+                    try {
+                        await seekVideo(video, req.sourceTimeMs / 1000);
+                        if (video.readyState < 2 || video.videoWidth === 0) continue;
+                        bitmaps.push({ clipId: req.clipId, bitmap: await createImageBitmap(video) });
+                    } catch (err) {
+                        console.error('[ExportUtils] Failed to grab video frame', err);
+                    }
+                }
+
+                // Ownership moves to the worker; these are unusable here afterwards.
+                worker.postMessage(
+                    { type: 'videoFrames', requestId, bitmaps },
+                    bitmaps.map(b => b.bitmap)
+                );
+                return;
+            }
+
             console.log('[ExportUtils] Received from worker:', e.data.type, e.data);
             if (e.data.type === 'progress') {
                 onProgress(e.data.progress);
             } else if (e.data.type === 'error') {
                 console.error('[ExportUtils] Worker returned error:', e.data.error);
                 worker.terminate();
+                disposeVideos();
                 onError(e.data.error);
             } else if (e.data.type === 'done') {
                 console.log('[ExportUtils] Received done, creating Blob...');
                 const blob = new Blob([e.data.buffer], { type: 'video/mp4' });
                 const url = URL.createObjectURL(blob);
                 worker.terminate();
+                disposeVideos();
                 onComplete(url);
             }
         };
@@ -78,6 +139,7 @@ export const startMP4Export = async (
         worker.onerror = (err) => {
             console.error('[ExportUtils] Worker onerror triggered:', err);
             worker.terminate();
+            disposeVideos();
             onError(err.message || 'Worker syntax or runtime error');
         };
 
@@ -91,6 +153,12 @@ export const startMP4Export = async (
             settings,
             clips,
             imageBitmaps,
+            videoAssets: videoAssets.map(a => ({
+                assetId: a.id,
+                durationMs: a.duration ?? 0,
+                width: a.width ?? 0,
+                height: a.height ?? 0,
+            })),
             audio: audioPayload
         }, transferList); // Transfer ownership of bitmaps/audio buffers to worker
 

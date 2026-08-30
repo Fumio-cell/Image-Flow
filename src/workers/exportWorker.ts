@@ -6,11 +6,20 @@ import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../utils/deltaFlowRen
 import { DeltaFlowFieldCache } from '../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
+import { getSourceTimeSec } from '../utils/videoTiming';
+
+export interface VideoAssetMeta {
+    assetId: string;
+    durationMs: number;
+    width: number;
+    height: number;
+}
 
 export interface ExportWorkerData {
     settings: ProjectSettings;
     clips: Clip[];
     imageBitmaps: { assetId: string, bitmap: ImageBitmap }[];
+    videoAssets?: VideoAssetMeta[];
     audio?: {
         channelData: Float32Array[]; // one entry per channel, decoded PCM
         numberOfChannels: number;
@@ -23,9 +32,38 @@ export interface ExportWorkerData {
 const AUDIO_BITRATE_PER_CHANNEL = 128_000;
 const AUDIO_CHUNK_FRAMES = 4096;
 
-self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
-    console.log('[Worker] Received data:', e.data);
-    const { settings, clips, imageBitmaps, audio } = e.data;
+// The worker has no <video>, so it asks the main thread to seek and hand back
+// ImageBitmaps. Requests are keyed by id so responses can be awaited.
+type FrameResponse = { clipId: string; bitmap: ImageBitmap }[];
+const pendingFrameRequests = new Map<number, (bitmaps: FrameResponse) => void>();
+let nextRequestId = 0;
+
+function requestVideoFrames(
+    frames: { clipId: string; assetId: string; sourceTimeMs: number }[]
+): Promise<FrameResponse> {
+    if (frames.length === 0) return Promise.resolve([]);
+    const requestId = nextRequestId++;
+    return new Promise((resolve) => {
+        pendingFrameRequests.set(requestId, resolve);
+        self.postMessage({ type: 'requestVideoFrames', requestId, frames });
+    });
+}
+
+self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'; requestId: number; bitmaps: FrameResponse }>) => {
+    // Frame deliveries are replies to our own requests, not a new export job.
+    if ((e.data as { type?: string }).type === 'videoFrames') {
+        const { requestId, bitmaps } = e.data as { type: 'videoFrames'; requestId: number; bitmaps: FrameResponse };
+        const resolve = pendingFrameRequests.get(requestId);
+        if (resolve) {
+            pendingFrameRequests.delete(requestId);
+            resolve(bitmaps);
+        }
+        return;
+    }
+
+    console.log('[Worker] Received export job');
+    const { settings, clips, imageBitmaps, videoAssets, audio } = e.data as ExportWorkerData;
+    const videoMetaById = new Map((videoAssets ?? []).map(v => [v.assetId, v]));
     const hasAudio = !!audio && audio.channelData.length > 0 && typeof AudioEncoder !== 'undefined';
     if (audio && !hasAudio && typeof AudioEncoder === 'undefined') {
         console.warn('[Worker] AudioEncoder not supported in this browser; exporting without audio.');
@@ -104,10 +142,36 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 currentTimeMs >= c.startTimeMs && currentTimeMs < c.startTimeMs + c.durationMs
             );
 
+            // Ask for every video frame this timestamp needs in one round trip —
+            // one request per clip would multiply the seek latency.
+            const videoRequests = activeClips
+                .filter(c => videoMetaById.has(c.assetId))
+                .map(c => {
+                    const meta = videoMetaById.get(c.assetId)!;
+                    return {
+                        clipId: c.id,
+                        assetId: c.assetId,
+                        sourceTimeMs: getSourceTimeSec(c, meta.durationMs, currentTimeMs) * 1000,
+                    };
+                });
+            const videoFrames = await requestVideoFrames(videoRequests);
+            const videoFrameByClip = new Map(videoFrames.map(f => [f.clipId, f.bitmap]));
+
+            // Every video bitmap fetched for this frame must be closed once drawn —
+            // at 1080p a leak here reaches GBs within a few hundred frames.
+            const frameBitmapsToClose: ImageBitmap[] = videoFrames.map(f => f.bitmap);
+
+            /** Resolve a clip to its drawable source, image or video alike. */
+            const sourceForClip = (c: Clip): ImageBitmap | null => {
+                const vf = videoFrameByClip.get(c.id);
+                if (vf) return vf;
+                return imageBitmaps.find(b => b.assetId === c.assetId)?.bitmap ?? null;
+            };
+
             for (const clip of activeClips) {
-                const bitmapObj = imageBitmaps.find(b => b.assetId === clip.assetId);
-                if (!bitmapObj) continue;
-                const img = bitmapObj.bitmap;
+                const img = sourceForClip(clip);
+                if (!img) continue;
+                const isVideo = videoMetaById.has(clip.assetId);
 
                 let alpha = 1.0;
                 let deltaFlowPrevImg: ImageBitmap | null = null;
@@ -135,16 +199,22 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
 
                         if (clip.transitionType === 'dissolve') {
                             alpha = overlapProgress;
-                        } else if (clip.transitionType === 'delta-flow') {
+                        } else if (clip.transitionType === 'delta-flow' && !isVideo) {
+                            // Matches the preview: these build a displacement field from a
+                            // fixed pair of stills, so a moving source can't drive them.
                             deltaFlowProgress = overlapProgress;
-                            const prevBitmapObj = imageBitmaps.find(b => b.assetId === prevClip.assetId);
+                            const prevBitmapObj = !videoMetaById.has(prevClip.assetId)
+                                ? imageBitmaps.find(b => b.assetId === prevClip.assetId)
+                                : undefined;
                             if (prevBitmapObj) {
                                 deltaFlowPrevImg = prevBitmapObj.bitmap;
                                 deltaFlowPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
                             }
-                        } else if (clip.transitionType === 'breathing-morph') {
+                        } else if (clip.transitionType === 'breathing-morph' && !isVideo) {
                             breathingMorphProgress = overlapProgress;
-                            const prevBitmapObj = imageBitmaps.find(b => b.assetId === prevClip.assetId);
+                            const prevBitmapObj = !videoMetaById.has(prevClip.assetId)
+                                ? imageBitmaps.find(b => b.assetId === prevClip.assetId)
+                                : undefined;
                             if (prevBitmapObj) {
                                 breathingMorphPrevImg = prevBitmapObj.bitmap;
                                 breathingMorphPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
@@ -226,7 +296,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                     dh = newH;
                 }
 
-                if (clip.transitionType === 'delta-flow' && deltaFlowPrevImg && deltaFlowPairKey) {
+                if (clip.transitionType === 'delta-flow' && !isVideo && deltaFlowPrevImg && deltaFlowPairKey) {
                     const sensitivity = clip.deltaFlowSensitivity ?? 0.55;
                     const strength = clip.deltaFlowStrength ?? 0.60;
                     const noiseAmount = clip.deltaFlowNoiseAmount ?? 0.30;
@@ -238,7 +308,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                         { sensitivity, strength, noiseAmount },
                         dx, dy, dw, dh
                     );
-                } else if (clip.transitionType === 'breathing-morph' && breathingMorphPrevImg && breathingMorphPairKey) {
+                } else if (clip.transitionType === 'breathing-morph' && !isVideo && breathingMorphPrevImg && breathingMorphPairKey) {
                     const turbulence = clip.breathingTurbulence ?? 0.5;
                     const swirl = clip.breathingSwirl ?? 0.5;
 
@@ -265,6 +335,10 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
 
                 ctx.globalAlpha = 1.0;
             }
+
+            // Free the decoded video frames now that they're composited.
+            for (const bmp of frameBitmapsToClose) bmp.close();
+            frameBitmapsToClose.length = 0;
 
             const frame = new VideoFrame(canvas, { timestamp: currentTimeMs * 1000 });
             encoder.encode(frame, { keyFrame: frameCount % (settings.fps * 2) === 0 });
