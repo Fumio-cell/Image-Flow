@@ -32,11 +32,18 @@ export const ClipTrack: React.FC = () => {
 
         const startTimeMs = dropX / zoomScale;
 
+        // Video clips default to the full source length; stills stay at 3s.
+        const droppedAsset = assets.find(a => a.id === assetId);
+        const durationMs = droppedAsset?.type === 'video' && droppedAsset.duration
+            ? Math.round(droppedAsset.duration)
+            : 3000;
+
         const newClip: Clip = {
             id: crypto.randomUUID(),
             assetId,
             startTimeMs: Math.round(startTimeMs),
-            durationMs: 3000,
+            durationMs,
+            sourceInMs: 0,
             transitionType: 'cut',
             transitionDurationMs: 0,
             fitMode: 'fit',
@@ -193,6 +200,9 @@ export const ClipTrack: React.FC = () => {
                             {/* Thumbnail */}
                             {asset?.type === 'image' && (
                                 <img src={asset.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
+                            )}
+                            {asset?.type === 'video' && asset.posterUrl && (
+                                <img src={asset.posterUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
                             )}
 
                             {/* Clip name */}

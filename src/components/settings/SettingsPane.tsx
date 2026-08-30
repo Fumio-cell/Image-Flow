@@ -67,7 +67,12 @@ const RangeField: React.FC<{
 export const SettingsPane: React.FC = () => {
     const selectedClipId = useProjectStore((s) => s.ui.selectedClipId);
     const clips = useProjectStore((s) => s.data.clips);
+    const assets = useProjectStore((s) => s.data.assets);
     const clip = clips.find(c => c.id === selectedClipId);
+    const clipAsset = clip ? assets.find(a => a.id === clip.assetId) : undefined;
+    // Delta Flow and Breathing Morph build a displacement field from a fixed
+    // pair of stills, so they can't run against a moving video source.
+    const isVideoClip = clipAsset?.type === 'video';
     const updateClip = useProjectStore((s) => s.updateClip);
     const removeClip = useProjectStore((s) => s.removeClip);
 
@@ -146,10 +151,19 @@ export const SettingsPane: React.FC = () => {
                 >
                     <option value="cut">Cut</option>
                     <option value="dissolve">Dissolve</option>
-                    <option value="delta-flow">Delta Flow</option>
+                    <option value="delta-flow" disabled={isVideoClip}>
+                        Delta Flow{isVideoClip ? ' — stills only' : ''}
+                    </option>
                     <option value="glitch">Glitch</option>
-                    <option value="breathing-morph">Breathing Morph</option>
+                    <option value="breathing-morph" disabled={isVideoClip}>
+                        Breathing Morph{isVideoClip ? ' — stills only' : ''}
+                    </option>
                 </select>
+                {isVideoClip && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Delta Flow and Breathing Morph need still images.
+                    </span>
+                )}
             </div>
 
             {(clip.transitionType === 'dissolve' || clip.transitionType === 'delta-flow' || clip.transitionType === 'glitch' || clip.transitionType === 'breathing-morph') && (
