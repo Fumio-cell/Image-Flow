@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ImageCache } from '../../utils/imageCache';
 import { VideoCache } from '../../utils/videoCache';
+import { getSourceTimeSec } from '../../utils/videoTiming';
 import { drawDownscaledImage } from '../../utils/imageDownscaler';
 import { applyGlitch } from '../../utils/glitchRenderer';
 import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../../utils/deltaFlowRenderer';
@@ -92,9 +93,7 @@ export const PreviewCanvas: React.FC = () => {
                     const video = VideoCache.getVideo(asset);
                     if (!video) continue;
 
-                    const sourceMs = (clip.sourceInMs ?? 0) + (playheadMs - clip.startTimeMs);
-                    const maxSec = asset.duration ? Math.max(0, asset.duration / 1000 - 0.001) : 0;
-                    const targetSec = Math.min(Math.max(sourceMs / 1000, 0), maxSec);
+                    const targetSec = getSourceTimeSec(clip, asset.duration, playheadMs);
 
                     await VideoCache.sync(video, targetSec, isPlaying);
                     if (isStale()) return;
