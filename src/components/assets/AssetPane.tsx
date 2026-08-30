@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
-import { Music, Plus, Trash2 } from 'lucide-react';
+import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData } from '../../utils/audioUtils';
+import { getVideoData } from '../../utils/videoUtils';
 import type { AssetItem } from '../../types';
 
 export const AssetPane: React.FC = () => {
@@ -20,10 +21,13 @@ export const AssetPane: React.FC = () => {
         const updateAsset = useProjectStore.getState().updateAsset;
 
         for (const file of files) {
+            const lowerName = file.name.toLowerCase();
             const isImage = file.type.startsWith('image/');
-            const isAudio = file.type.startsWith('audio/') || file.name.endsWith('.wav') || file.name.endsWith('.mp3') || file.name.endsWith('.m4a');
+            // Check video before audio: '.m4v' otherwise gets mistaken for '.m4a'.
+            const isVideo = file.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mov') || lowerName.endsWith('.webm') || lowerName.endsWith('.m4v');
+            const isAudio = !isVideo && (file.type.startsWith('audio/') || lowerName.endsWith('.wav') || lowerName.endsWith('.mp3') || lowerName.endsWith('.m4a'));
 
-            if (!isImage && !isAudio) continue;
+            if (!isImage && !isAudio && !isVideo) continue;
 
             const objectUrl = URL.createObjectURL(file);
 
@@ -40,6 +44,14 @@ export const AssetPane: React.FC = () => {
                         console.error("Failed to parse audio", err);
                         alert(`Failed to parse audio: ${file.name}`);
                     }
+                } else if (isVideo) {
+                    try {
+                        const { duration, width, height, posterUrl } = await getVideoData(file);
+                        updateAsset(missingAsset.id, { file, objectUrl, duration, width, height, posterUrl });
+                    } catch (err) {
+                        console.error("Failed to parse video", err);
+                        alert(`Failed to parse video: ${file.name}`);
+                    }
                 } else {
                     updateAsset(missingAsset.id, { file, objectUrl });
                 }
@@ -55,6 +67,14 @@ export const AssetPane: React.FC = () => {
                     } catch (err) {
                         console.error("Failed to parse audio", err);
                         alert(`Failed to parse audio: ${file.name}`);
+                    }
+                } else if (isVideo) {
+                    try {
+                        const { duration, width, height, posterUrl } = await getVideoData(file);
+                        newAssets.push({ id, type: 'video', file, objectUrl, name: file.name, duration, width, height, posterUrl });
+                    } catch (err) {
+                        console.error("Failed to parse video", err);
+                        alert(`Failed to parse video: ${file.name}`);
                     }
                 }
             }
@@ -79,7 +99,7 @@ export const AssetPane: React.FC = () => {
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                     multiple
-                    accept=".jpg,.jpeg,.png,.wav,.mp3,.m4a"
+                    accept=".jpg,.jpeg,.png,.mp4,.mov,.webm,.m4v,.wav,.mp3,.m4a"
                     onChange={handleFileChange}
                 />
             </div>
@@ -109,6 +129,24 @@ export const AssetPane: React.FC = () => {
                                     }}>
                                     {asset.type === 'image' ? (
                                         <img src={asset.objectUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                    ) : asset.type === 'video' ? (
+                                        <div style={{ position: 'relative', width: '100%', height: '80px' }}>
+                                            {asset.posterUrl ? (
+                                                <img src={asset.posterUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                            ) : (
+                                                <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Film size={24} color="var(--text-muted)" />
+                                                </div>
+                                            )}
+                                            <div style={{
+                                                position: 'absolute', top: 2, left: 2,
+                                                width: 18, height: 18,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: '4px'
+                                            }}>
+                                                <Film size={11} color="white" />
+                                            </div>
+                                        </div>
                                     ) : (
                                         <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Music size={24} color="var(--text-muted)" />
