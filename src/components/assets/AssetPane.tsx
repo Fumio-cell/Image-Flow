@@ -21,6 +21,8 @@ export const AssetPane: React.FC = () => {
         const storeAssets = useProjectStore.getState().data.assets;
         const updateAsset = useProjectStore.getState().updateAsset;
 
+        console.log('[AssetPane] Importing', files.length, 'file(s):', files.map(f => `${f.name} (${f.type || 'no MIME'}, ${(f.size/1048576).toFixed(1)}MB)`));
+
         for (const file of files) {
             const lowerName = file.name.toLowerCase();
             const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
@@ -41,6 +43,7 @@ export const AssetPane: React.FC = () => {
                 continue;
             }
 
+            console.log(`[AssetPane] ${file.name} → ${isImage ? 'image' : isVideo ? 'video' : 'audio'}`);
             const objectUrl = URL.createObjectURL(file);
 
             // プロジェクト保存・読み込み時に file/objectUrl が欠落している同名アセットを探す
@@ -81,6 +84,7 @@ export const AssetPane: React.FC = () => {
                 } else if (isAudio) {
                     try {
                         const { duration, peaks } = await getAudioData(file);
+                        console.log(`[AssetPane] ${file.name} decoded: ${(duration/1000).toFixed(1)}s`);
                         newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
@@ -104,6 +108,7 @@ export const AssetPane: React.FC = () => {
             }
         }
 
+        console.log('[AssetPane] Adding', newAssets.length, 'new asset(s); skipped', skipped.length);
         if (newAssets.length > 0) {
             addAssets(newAssets);
         }
