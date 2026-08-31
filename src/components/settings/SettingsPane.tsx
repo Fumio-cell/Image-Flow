@@ -73,7 +73,11 @@ export const SettingsPane: React.FC = () => {
     // Delta Flow and Breathing Morph build a displacement field from a fixed
     // pair of stills, so they can't run against a moving video source.
     const isVideoClip = clipAsset?.type === 'video';
-    const clipHasAudio = isVideoClip && clipAsset?.hasAudio === true;
+    // Volume applies to anything that carries sound: audio clips, and video
+    // clips whose file has an audio track.
+    const clipHasAudio =
+        clipAsset?.type === 'audio' ||
+        (clipAsset?.type === 'video' && clipAsset.hasAudio === true);
     const updateClip = useProjectStore((s) => s.updateClip);
     const removeClip = useProjectStore((s) => s.removeClip);
 

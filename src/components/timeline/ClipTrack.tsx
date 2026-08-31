@@ -5,7 +5,12 @@ import type { Clip } from '../../types';
 const HANDLE_WIDTH = 8; // px — the grabbable area on each edge
 const MIN_DURATION_MS = 100;
 
-export const ClipTrack: React.FC = () => {
+interface ClipTrackProps {
+    /** Which lane this is. Both lanes share the same move/trim behaviour. */
+    kind?: 'visual' | 'audio';
+}
+
+export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
     const clips = useProjectStore(s => s.data.clips);
     const assets = useProjectStore(s => s.data.assets);
     const zoomScale = useProjectStore(s => s.ui.zoomScale);
@@ -26,16 +31,20 @@ export const ClipTrack: React.FC = () => {
         const assetId = e.dataTransfer.getData('text/plain');
         if (!assetId) return;
 
+        const dropped = assets.find(a => a.id === assetId);
+        if (!dropped) return;
+        const droppedIsAudio = dropped.type === 'audio';
+        if ((kind === 'audio') !== droppedIsAudio) return; // wrong lane
+
         if (!trackRef.current) return;
         const rect = trackRef.current.getBoundingClientRect();
         const dropX = e.clientX - rect.left + trackRef.current.scrollLeft;
 
         const startTimeMs = dropX / zoomScale;
 
-        // Video clips default to the full source length; stills stay at 3s.
-        const droppedAsset = assets.find(a => a.id === assetId);
-        const durationMs = droppedAsset?.type === 'video' && droppedAsset.duration
-            ? Math.round(droppedAsset.duration)
+        // Video and audio clips default to the full source length; stills stay at 3s.
+        const durationMs = (dropped.type === 'video' || dropped.type === 'audio') && dropped.duration
+            ? Math.round(dropped.duration)
             : 3000;
 
         const newClip: Clip = {
@@ -73,7 +82,7 @@ export const ClipTrack: React.FC = () => {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             style={{
-                height: '160px',
+                height: kind === 'audio' ? '90px' : '160px',
                 borderBottom: '2px solid var(--panel-border)',
                 position: 'relative',
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -82,7 +91,12 @@ export const ClipTrack: React.FC = () => {
             }}
         >
             {(() => {
-                const sortedClips = [...clips].sort((a, b) => a.startTimeMs - b.startTimeMs);
+                const laneClips = clips.filter(c => {
+                    const a = assets.find(x => x.id === c.assetId);
+                    const isAudio = a?.type === 'audio';
+                    return (kind === 'audio') === isAudio;
+                });
+                const sortedClips = [...laneClips].sort((a, b) => a.startTimeMs - b.startTimeMs);
                 return sortedClips.map((clip, index) => {
                     const asset = assets.find(a => a.id === clip.assetId);
                     const left = clip.startTimeMs * zoomScale;
@@ -188,7 +202,7 @@ export const ClipTrack: React.FC = () => {
                                 top: '4px',
                                 left: `${left}px`,
                                 width: `${Math.max(2, width)}px`,
-                                height: '152px',
+                                height: kind === 'audio' ? '82px' : '152px',
                                 backgroundColor: 'var(--clip-bg)',
                                 border: isSelected ? '2px solid var(--clip-selected)' : '1px solid var(--clip-border)',
                                 borderRadius: 'var(--radius-sm)',
@@ -202,6 +216,22 @@ export const ClipTrack: React.FC = () => {
                             {/* Thumbnail */}
                             {asset?.type === 'image' && (
                                 <img src={asset.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
+                            )}
+                            {asset?.type === 'audio' && asset.peaks && (
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    display: 'flex', alignItems: 'center', gap: '1px',
+                                    padding: '0 2px', pointerEvents: 'none',
+                                    opacity: clip.muted ? 0.3 : 1
+                                }}>
+                                    {asset.peaks.filter((_, i) => i % 4 === 0).map((pk, i) => (
+                                        <div key={i} style={{
+                                            flex: 1,
+                                            height: `${Math.max(2, Math.min(1, pk) * 60 * (clip.volume ?? 1))}px`,
+                                            background: 'rgba(148, 163, 184, 0.85)'
+                                        }} />
+                                    ))}
+                                </div>
                             )}
                             {asset?.type === 'video' && asset.hasAudio && asset.peaks && (
                                 <div style={{

@@ -51,6 +51,7 @@ export const startMP4Export = async (
 
         const disposeAudio = () => {
             mixSources.length = 0;
+            decodeCache.clear();
             if (audioCtxRef) {
                 audioCtxRef.close().catch(() => { /* already closed */ });
                 audioCtxRef = null;
@@ -72,6 +73,7 @@ export const startMP4Export = async (
         // has to happen here on the main thread.
         let audioPayload: { numberOfChannels: number; sampleRate: number; totalFrames: number } | undefined;
         let audioCtxRef: AudioContext | null = null;
+        const decodeCache = new Map<string, AudioBuffer>();
 
         /**
          * One contributor to the final mix: either the standalone audio asset
@@ -86,41 +88,42 @@ export const startMP4Export = async (
             gain: number;
         }
         const mixSources: MixSource[] = [];
-        const audioAsset = assets.find(a => a.type === 'audio');
-        if (audioAsset) {
-            try {
-                const arrayBuffer = await audioAsset.file.arrayBuffer();
-                const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
-                // 48kHz: a standard, broadly-supported rate for AAC that also
-                // matches/exceeds most source material, so decoding into it
-                // here doubles as the resample step.
-                const audioCtx = new AudioContextCtor({ sampleRate: 48000 });
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                audioCtxRef = audioCtx;
-                mixSources.push({
-                    buffer: audioBuffer,
-                    startFrame: 0,
-                    sourceInFrame: 0,
-                    lengthFrames: audioBuffer.length,
-                    gain: 1,
-                });
-            } catch (err) {
-                console.error('[ExportUtils] Failed to decode audio for export; exporting without audio.', err);
-            }
-        }
-
-        // 1c. Each video clip contributes its own soundtrack unless muted.
+        // 1b/1c. Every clip that carries sound contributes to the mix, placed at
+        // its own spot on the timeline with its own level: audio clips the user
+        // positioned, plus each video clip's built-in soundtrack.
         const SAMPLE_RATE = 48000;
-        if (!audioCtxRef) {
-            const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            audioCtxRef = new Ctor({ sampleRate: SAMPLE_RATE });
-        }
+        const ensureCtx = () => {
+            if (!audioCtxRef) {
+                const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                // 48kHz: broadly supported for AAC and at least matches most
+                // source material, so decoding here doubles as the resample.
+                audioCtxRef = new Ctor({ sampleRate: SAMPLE_RATE });
+            }
+            return audioCtxRef;
+        };
+
+        const decodeAsset = async (asset: typeof assets[number]): Promise<AudioBuffer | null> => {
+            const cached = decodeCache.get(asset.id);
+            if (cached) return cached;
+            if (!asset.file) return null;
+            const decoded = await ensureCtx().decodeAudioData(await asset.file.arrayBuffer());
+            decodeCache.set(asset.id, decoded);
+            return decoded;
+        };
+
         for (const clip of clips) {
             if (clip.muted) continue;
             const asset = assets.find(a => a.id === clip.assetId);
-            if (!asset || asset.type !== 'video' || !asset.hasAudio || !asset.file) continue;
+            if (!asset) continue;
+
+            const carriesAudio =
+                asset.type === 'audio' ||
+                (asset.type === 'video' && asset.hasAudio === true);
+            if (!carriesAudio) continue;
+
             try {
-                const decoded = await audioCtxRef.decodeAudioData(await asset.file.arrayBuffer());
+                const decoded = await decodeAsset(asset);
+                if (!decoded) continue;
                 const rate = decoded.sampleRate;
                 mixSources.push({
                     buffer: decoded,
@@ -130,7 +133,7 @@ export const startMP4Export = async (
                     gain: clip.volume ?? 1,
                 });
             } catch (err) {
-                console.warn('[ExportUtils] Could not decode audio for video clip; it will be silent.', asset.name, err);
+                console.warn('[ExportUtils] Could not decode audio for clip; it will be silent.', asset.name, err);
             }
         }
 
