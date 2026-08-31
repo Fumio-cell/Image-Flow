@@ -67,7 +67,17 @@ const RangeField: React.FC<{
 export const SettingsPane: React.FC = () => {
     const selectedClipId = useProjectStore((s) => s.ui.selectedClipId);
     const clips = useProjectStore((s) => s.data.clips);
+    const assets = useProjectStore((s) => s.data.assets);
     const clip = clips.find(c => c.id === selectedClipId);
+    const clipAsset = clip ? assets.find(a => a.id === clip.assetId) : undefined;
+    // Delta Flow and Breathing Morph build a displacement field from a fixed
+    // pair of stills, so they can't run against a moving video source.
+    const isVideoClip = clipAsset?.type === 'video';
+    // Volume applies to anything that carries sound: audio clips, and video
+    // clips whose file has an audio track.
+    const clipHasAudio =
+        clipAsset?.type === 'audio' ||
+        (clipAsset?.type === 'video' && clipAsset.hasAudio === true);
     const updateClip = useProjectStore((s) => s.updateClip);
     const removeClip = useProjectStore((s) => s.removeClip);
 
@@ -138,6 +148,44 @@ export const SettingsPane: React.FC = () => {
                 onChange={(v) => updateClip(clip.id, { durationMs: v })}
             />
 
+            {clipHasAudio && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Clip Volume
+                        </label>
+                        <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <input
+                                type="checkbox"
+                                checked={clip.muted ?? false}
+                                onChange={(e) => updateClip(clip.id, { muted: e.target.checked })}
+                            />
+                            Mute
+                        </label>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                            className="volume-slider"
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            disabled={clip.muted ?? false}
+                            value={clip.volume ?? 1}
+                            onChange={(e) => updateClip(clip.id, { volume: Number(e.target.value) })}
+                            style={{
+                                flex: 1,
+                                // Fill follows the value exactly, so 100% reaches the end.
+                                background: `linear-gradient(to right, var(--accent-color) 0%, var(--accent-color) ${(clip.volume ?? 1) * 100}%, rgba(255,255,255,0.15) ${(clip.volume ?? 1) * 100}%, rgba(255,255,255,0.15) 100%)`,
+                            }}
+                        />
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '3ch', textAlign: 'right' }}>
+                            {Math.round((clip.volume ?? 1) * 100)}
+                        </span>
+                    </div>
+                </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Transition Type</label>
                 <select
@@ -146,10 +194,19 @@ export const SettingsPane: React.FC = () => {
                 >
                     <option value="cut">Cut</option>
                     <option value="dissolve">Dissolve</option>
-                    <option value="delta-flow">Delta Flow</option>
+                    <option value="delta-flow" disabled={isVideoClip}>
+                        Delta Flow{isVideoClip ? ' — stills only' : ''}
+                    </option>
                     <option value="glitch">Glitch</option>
-                    <option value="breathing-morph">Breathing Morph</option>
+                    <option value="breathing-morph" disabled={isVideoClip}>
+                        Breathing Morph{isVideoClip ? ' — stills only' : ''}
+                    </option>
                 </select>
+                {isVideoClip && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Delta Flow and Breathing Morph need still images.
+                    </span>
+                )}
             </div>
 
             {(clip.transitionType === 'dissolve' || clip.transitionType === 'delta-flow' || clip.transitionType === 'glitch' || clip.transitionType === 'breathing-morph') && (

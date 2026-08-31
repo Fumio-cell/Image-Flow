@@ -1,7 +1,9 @@
 import React, { useRef } from 'react';
-import { Music, Plus, Trash2 } from 'lucide-react';
+import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData } from '../../utils/audioUtils';
+import { getVideoData } from '../../utils/videoUtils';
+import { isAiff, decodeAiff, encodeWav } from '../../utils/aiffDecoder';
 import type { AssetItem } from '../../types';
 
 export const AssetPane: React.FC = () => {
@@ -16,16 +18,48 @@ export const AssetPane: React.FC = () => {
         if (!files.length) return;
 
         const newAssets: AssetItem[] = [];
+        const skipped: string[] = [];
         const storeAssets = useProjectStore.getState().data.assets;
         const updateAsset = useProjectStore.getState().updateAsset;
 
+        console.log('[AssetPane] Importing', files.length, 'file(s):', files.map(f => `${f.name} (${f.type || 'no MIME'}, ${(f.size/1048576).toFixed(1)}MB)`));
+
         for (const file of files) {
-            const isImage = file.type.startsWith('image/');
-            const isAudio = file.type.startsWith('audio/') || file.name.endsWith('.wav') || file.name.endsWith('.mp3') || file.name.endsWith('.m4a');
+            const lowerName = file.name.toLowerCase();
+            const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+            const isImage = file.type.startsWith('image/') || IMAGE_EXTS.some(ext => lowerName.endsWith(ext));
+            // Check video before audio: '.m4v' otherwise gets mistaken for '.m4a'.
+            const isVideo = file.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mov') || lowerName.endsWith('.webm') || lowerName.endsWith('.m4v');
+            // Accept anything the browser might decode. Whether it actually can
+            // is decided at decode time, where a failure is reported clearly.
+            const AUDIO_EXTS = ['.wav', '.mp3', '.m4a', '.aac', '.aif', '.aiff', '.flac', '.ogg', '.oga', '.opus', '.weba', '.caf', '.wma', '.mp4a'];
+            const isAudio = !isVideo && (
+                file.type.startsWith('audio/') ||
+                AUDIO_EXTS.some(ext => lowerName.endsWith(ext))
+            );
 
-            if (!isImage && !isAudio) continue;
+            if (!isImage && !isAudio && !isVideo) {
+                console.warn('[AssetPane] Unsupported file skipped:', file.name, file.type);
+                skipped.push(file.name);
+                continue;
+            }
 
-            const objectUrl = URL.createObjectURL(file);
+            console.log(`[AssetPane] ${file.name} → ${isImage ? 'image' : isVideo ? 'video' : 'audio'}`);
+
+            // AIFF can't be played by any browser, so preview from an in-memory
+            // WAV instead. Export still reads the original file.
+            let objectUrl: string;
+            if (isAudio) {
+                const raw = await file.arrayBuffer();
+                if (isAiff(raw)) {
+                    const { channelData, sampleRate } = decodeAiff(raw);
+                    objectUrl = URL.createObjectURL(encodeWav(channelData, sampleRate));
+                } else {
+                    objectUrl = URL.createObjectURL(file);
+                }
+            } else {
+                objectUrl = URL.createObjectURL(file);
+            }
 
             // プロジェクト保存・読み込み時に file/objectUrl が欠落している同名アセットを探す
             const missingAsset = storeAssets.find(a => a.name === file.name && !a.file);
@@ -38,7 +72,21 @@ export const AssetPane: React.FC = () => {
                         updateAsset(missingAsset.id, { file, objectUrl, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
-                        alert(`Failed to parse audio: ${file.name}`);
+                        // The browser, not this app, decides which codecs decode.
+                        // AIFF in particular is commonly rejected.
+                        alert(
+                            `Could not read audio: ${file.name}\n\n` +
+                            `Your browser can't decode this format. ` +
+                            `Converting it to WAV, MP3 or FLAC should work.`
+                        );
+                    }
+                } else if (isVideo) {
+                    try {
+                        const { duration, width, height, posterUrl, hasAudio, peaks } = await getVideoData(file);
+                        updateAsset(missingAsset.id, { file, objectUrl, duration, width, height, posterUrl, hasAudio, peaks });
+                    } catch (err) {
+                        console.error("Failed to parse video", err);
+                        alert(`Failed to parse video: ${file.name}`);
                     }
                 } else {
                     updateAsset(missingAsset.id, { file, objectUrl });
@@ -51,17 +99,37 @@ export const AssetPane: React.FC = () => {
                 } else if (isAudio) {
                     try {
                         const { duration, peaks } = await getAudioData(file);
+                        console.log(`[AssetPane] ${file.name} decoded: ${(duration/1000).toFixed(1)}s`);
                         newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
-                        alert(`Failed to parse audio: ${file.name}`);
+                        // The browser, not this app, decides which codecs decode.
+                        // AIFF in particular is commonly rejected.
+                        alert(
+                            `Could not read audio: ${file.name}\n\n` +
+                            `Your browser can't decode this format. ` +
+                            `Converting it to WAV, MP3 or FLAC should work.`
+                        );
+                    }
+                } else if (isVideo) {
+                    try {
+                        const { duration, width, height, posterUrl, hasAudio, peaks } = await getVideoData(file);
+                        newAssets.push({ id, type: 'video', file, objectUrl, name: file.name, duration, width, height, posterUrl, hasAudio, peaks });
+                    } catch (err) {
+                        console.error("Failed to parse video", err);
+                        alert(`Failed to parse video: ${file.name}`);
                     }
                 }
             }
         }
 
+        console.log('[AssetPane] Adding', newAssets.length, 'new asset(s); skipped', skipped.length);
         if (newAssets.length > 0) {
             addAssets(newAssets);
+        }
+
+        if (skipped.length > 0) {
+            alert(`Unsupported file type:\n${skipped.join('\n')}`);
         }
 
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -79,7 +147,7 @@ export const AssetPane: React.FC = () => {
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                     multiple
-                    accept=".jpg,.jpeg,.png,.wav,.mp3,.m4a"
+                    accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.mp4,.mov,.webm,.m4v,.wav,.mp3,.m4a,.aac,.aif,.aiff,.flac,.ogg,.oga,.opus,.weba,.caf,.wma"
                     onChange={handleFileChange}
                 />
             </div>
@@ -109,6 +177,24 @@ export const AssetPane: React.FC = () => {
                                     }}>
                                     {asset.type === 'image' ? (
                                         <img src={asset.objectUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                    ) : asset.type === 'video' ? (
+                                        <div style={{ position: 'relative', width: '100%', height: '80px' }}>
+                                            {asset.posterUrl ? (
+                                                <img src={asset.posterUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                            ) : (
+                                                <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Film size={24} color="var(--text-muted)" />
+                                                </div>
+                                            )}
+                                            <div style={{
+                                                position: 'absolute', top: 2, left: 2,
+                                                width: 18, height: 18,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: '4px'
+                                            }}>
+                                                <Film size={11} color="white" />
+                                            </div>
+                                        </div>
                                     ) : (
                                         <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Music size={24} color="var(--text-muted)" />

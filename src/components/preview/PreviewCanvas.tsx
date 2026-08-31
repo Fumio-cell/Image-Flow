@@ -1,12 +1,25 @@
 import React, { useRef, useEffect } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ImageCache } from '../../utils/imageCache';
+import { VideoCache } from '../../utils/videoCache';
+import { getSourceTimeSec } from '../../utils/videoTiming';
+import { getFadeWindow, getFadeGain } from '../../utils/audioMix';
 import { drawDownscaledImage } from '../../utils/imageDownscaler';
 import { applyGlitch } from '../../utils/glitchRenderer';
 import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../../utils/deltaFlowRenderer';
 import { DeltaFlowFieldCache } from '../../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../../utils/breathingMorphFieldCache';
+import type { Clip } from '../../types';
+
+/** One drawable layer for the current frame — an image or a live video element. */
+interface DrawEntry {
+    source: HTMLImageElement | HTMLVideoElement;
+    srcW: number;
+    srcH: number;
+    clip: Clip;
+    isVideo: boolean;
+}
 
 export const PreviewCanvas: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,6 +28,12 @@ export const PreviewCanvas: React.FC = () => {
     const clips = useProjectStore(s => s.data.clips);
     const assets = useProjectStore(s => s.data.assets);
     const settings = useProjectStore(s => s.data.settings);
+    const isPlaying = useProjectStore(s => s.ui.isPlaying);
+
+    // Bumped on every effect run. Video seeks are async, so a fast scrub can
+    // leave an older frame resolving after a newer one — each await re-checks
+    // this and bails if it is no longer the current generation.
+    const generationRef = useRef(0);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -41,23 +60,63 @@ export const PreviewCanvas: React.FC = () => {
             playheadMs >= c.startTimeMs && playheadMs < c.startTimeMs + c.durationMs
         );
 
+        const generation = ++generationRef.current;
+        const isStale = () => generationRef.current !== generation;
+
+        // Keep only the videos still on screen running.
+        VideoCache.pauseAllExcept(
+            activeClips
+                .map(c => assets.find(a => a.id === c.assetId))
+                .filter(a => a?.type === 'video')
+                .map(a => a!.id)
+        );
+
         const drawFrame = async () => {
-            // Pre-load all images needed for this frame
-            const imagesToDraw: { img: HTMLImageElement, clip: any }[] = [];
+            // Images and videos are collected into one shape so the draw loop
+            // below doesn't care which kind of source it is holding.
+            const imagesToDraw: DrawEntry[] = [];
 
             for (let i = 0; i < activeClips.length; i++) {
                 const clip = activeClips[i];
                 const asset = assets.find(a => a.id === clip.assetId);
-                if (!asset || asset.type !== 'image') continue;
+                if (!asset) continue;
 
-                let imgOrPromise = ImageCache.getImage(asset);
-                if (imgOrPromise instanceof Promise) {
-                    const img = await imgOrPromise;
-                    if (img) imagesToDraw.push({ img, clip });
-                } else if (imgOrPromise) {
-                    imagesToDraw.push({ img: imgOrPromise, clip });
+                if (asset.type === 'image') {
+                    const imgOrPromise = ImageCache.getImage(asset);
+                    if (imgOrPromise instanceof Promise) {
+                        const img = await imgOrPromise;
+                        if (isStale()) return;
+                        if (img) imagesToDraw.push({ source: img, srcW: img.width, srcH: img.height, clip, isVideo: false });
+                    } else if (imgOrPromise) {
+                        imagesToDraw.push({ source: imgOrPromise, srcW: imgOrPromise.width, srcH: imgOrPromise.height, clip, isVideo: false });
+                    }
+                } else if (asset.type === 'video') {
+                    const video = VideoCache.getVideo(asset);
+                    if (!video) continue;
+
+                    const targetSec = getSourceTimeSec(clip, asset.duration, playheadMs);
+
+                    // Hear the clip's own soundtrack at its mix level while playing,
+                    // crossfading with neighbours the same way the export will.
+                    const fadeGain = getFadeGain(getFadeWindow(clip, clips, assets), playheadMs);
+                    VideoCache.setLevel(video, (clip.volume ?? 1) * fadeGain, clip.muted ?? false, isPlaying);
+                    await VideoCache.sync(video, targetSec, isPlaying);
+                    if (isStale()) return;
+
+                    // HAVE_CURRENT_DATA or better, and actually decoded.
+                    if (video.readyState >= 2 && video.videoWidth > 0) {
+                        imagesToDraw.push({
+                            source: video,
+                            srcW: video.videoWidth,
+                            srcH: video.videoHeight,
+                            clip,
+                            isVideo: true,
+                        });
+                    }
                 }
             }
+
+            if (isStale()) return;
 
             // Extract Audio Level (Peak)
             const audioClips = activeClips.filter(c => {
@@ -86,7 +145,7 @@ export const PreviewCanvas: React.FC = () => {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
 
-            for (const { img, clip } of imagesToDraw) {
+            for (const { source, srcW, srcH, clip, isVideo } of imagesToDraw) {
 
                 // Calculate Alpha for Dissolve
                 let alpha = 1.0;
@@ -117,18 +176,20 @@ export const PreviewCanvas: React.FC = () => {
 
                         if (clip.transitionType === 'dissolve') {
                             alpha = overlapProgress;
-                        } else if (clip.transitionType === 'delta-flow') {
+                        } else if (clip.transitionType === 'delta-flow' && !isVideo) {
+                            // Both morph transitions precompute a displacement field from a
+                            // fixed pair of stills — a per-frame video source can't satisfy that.
                             deltaFlowProgress = overlapProgress;
-                            const prevEntry = imagesToDraw.find(e => e.clip.id === prevClip.id);
+                            const prevEntry = imagesToDraw.find(e => e.clip.id === prevClip.id && !e.isVideo);
                             if (prevEntry) {
-                                deltaFlowPrevImg = prevEntry.img;
+                                deltaFlowPrevImg = prevEntry.source as HTMLImageElement;
                                 deltaFlowPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
                             }
-                        } else if (clip.transitionType === 'breathing-morph') {
+                        } else if (clip.transitionType === 'breathing-morph' && !isVideo) {
                             breathingMorphProgress = overlapProgress;
-                            const prevEntry = imagesToDraw.find(e => e.clip.id === prevClip.id);
+                            const prevEntry = imagesToDraw.find(e => e.clip.id === prevClip.id && !e.isVideo);
                             if (prevEntry) {
-                                breathingMorphPrevImg = prevEntry.img;
+                                breathingMorphPrevImg = prevEntry.source as HTMLImageElement;
                                 breathingMorphPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
                             }
                         }
@@ -138,7 +199,7 @@ export const PreviewCanvas: React.FC = () => {
                 ctx.globalAlpha = Math.min(Math.max(alpha, 0), 1);
 
                 // Calculate Fit/Fill/Center
-                const imgAspect = img.width / img.height;
+                const imgAspect = srcW / srcH;
                 const canvasAspect = width / height;
 
                 let dx = 0, dy = 0, dw = width, dh = height;
@@ -164,8 +225,8 @@ export const PreviewCanvas: React.FC = () => {
                         dy = (height - dh) / 2;
                     }
                 } else if (clip.fitMode === 'center') {
-                    dw = img.width;
-                    dh = img.height;
+                    dw = srcW;
+                    dh = srcH;
                     dx = (width - dw) / 2;
                     dy = (height - dh) / 2;
                 }
@@ -226,23 +287,23 @@ export const PreviewCanvas: React.FC = () => {
                     dh = newH;
                 }
 
-                if (clip.transitionType === 'delta-flow' && deltaFlowPrevImg && deltaFlowPairKey) {
+                if (clip.transitionType === 'delta-flow' && !isVideo && deltaFlowPrevImg && deltaFlowPairKey) {
                     const sensitivity = clip.deltaFlowSensitivity ?? 0.55;
                     const strength = clip.deltaFlowStrength ?? 0.60;
                     const noiseAmount = clip.deltaFlowNoiseAmount ?? 0.30;
 
-                    const field = DeltaFlowFieldCache.getField(deltaFlowPairKey, deltaFlowPrevImg, img, sensitivity, DELTA_FLOW_WORK_RES, dw, dh);
+                    const field = DeltaFlowFieldCache.getField(deltaFlowPairKey, deltaFlowPrevImg, source as HTMLImageElement, sensitivity, DELTA_FLOW_WORK_RES, dw, dh);
 
                     renderDeltaFlowFrame(
                         ctx, field, deltaFlowProgress,
                         { sensitivity, strength, noiseAmount },
                         dx, dy, dw, dh
                     );
-                } else if (clip.transitionType === 'breathing-morph' && breathingMorphPrevImg && breathingMorphPairKey) {
+                } else if (clip.transitionType === 'breathing-morph' && !isVideo && breathingMorphPrevImg && breathingMorphPairKey) {
                     const turbulence = clip.breathingTurbulence ?? 0.5;
                     const swirl = clip.breathingSwirl ?? 0.5;
 
-                    const field = BreathingMorphFieldCache.getField(breathingMorphPairKey, breathingMorphPrevImg, img, BREATHING_MORPH_WORK_RES, dw, dh);
+                    const field = BreathingMorphFieldCache.getField(breathingMorphPairKey, breathingMorphPrevImg, source as HTMLImageElement, BREATHING_MORPH_WORK_RES, dw, dh);
 
                     renderBreathingMorphFrame(
                         ctx, field, breathingMorphProgress,
@@ -250,7 +311,7 @@ export const PreviewCanvas: React.FC = () => {
                         dx, dy, dw, dh
                     );
                 } else {
-                    drawDownscaledImage(ctx, img, dx, dy, dw, dh);
+                    drawDownscaledImage(ctx, source, dx, dy, dw, dh, srcW, srcH);
                 }
 
                 // Glitch transition: fires only during the overlap with the previous clip
@@ -277,7 +338,7 @@ export const PreviewCanvas: React.FC = () => {
         };
 
         drawFrame();
-    }, [playheadMs, clips, assets, settings.resolution]);
+    }, [playheadMs, clips, assets, settings.resolution, isPlaying]);
 
     return (
         <canvas

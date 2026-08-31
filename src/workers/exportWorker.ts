@@ -1,4 +1,4 @@
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
+import { Muxer, ArrayBufferTarget, FileSystemWritableFileStreamTarget } from 'mp4-muxer';
 import type { Clip, ProjectSettings } from '../types';
 import { drawDownscaledImage } from '../utils/imageDownscaler';
 import { applyGlitch } from '../utils/glitchRenderer';
@@ -6,27 +6,108 @@ import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../utils/deltaFlowRen
 import { DeltaFlowFieldCache } from '../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
+import { getSourceTimeSec } from '../utils/videoTiming';
+
+export interface VideoAssetMeta {
+    assetId: string;
+    durationMs: number;
+    width: number;
+    height: number;
+}
 
 export interface ExportWorkerData {
     settings: ProjectSettings;
     clips: Clip[];
+    /**
+     * When present, the muxer writes straight to this file as it encodes, so
+     * peak memory stays flat no matter how long the piece is. Without it we
+     * fall back to buffering the whole MP4 in RAM (browsers with no File
+     * System Access API).
+     */
+    fileHandle?: FileSystemFileHandle;
     imageBitmaps: { assetId: string, bitmap: ImageBitmap }[];
+    videoAssets?: VideoAssetMeta[];
     audio?: {
-        channelData: Float32Array[]; // one entry per channel, decoded PCM
+        // Metadata only — the PCM itself stays on the main thread and is
+        // streamed over in chunks so long tracks don't have to fit in memory twice.
         numberOfChannels: number;
         sampleRate: number;
+        totalFrames: number;
     };
 }
+
+// Proves the worker module parsed and executed. If this line never appears in
+// the console, the failure is module loading/resolution, not the export logic.
+console.log('[Worker] module loaded');
 
 // AAC-LC per channel — 128kbps mono / 256kbps stereo, a solidly
 // high-quality/near-transparent range without ballooning export time.
 const AUDIO_BITRATE_PER_CHANNEL = 128_000;
 const AUDIO_CHUNK_FRAMES = 4096;
 
-self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
-    console.log('[Worker] Received data:', e.data);
-    const { settings, clips, imageBitmaps, audio } = e.data;
-    const hasAudio = !!audio && audio.channelData.length > 0 && typeof AudioEncoder !== 'undefined';
+// The worker has no <video>, so it asks the main thread to seek and hand back
+// ImageBitmaps. Requests are keyed by id so responses can be awaited.
+type FrameResponse = { clipId: string; bitmap: ImageBitmap }[];
+const pendingFrameRequests = new Map<number, (bitmaps: FrameResponse) => void>();
+const pendingAudioRequests = new Map<number, (planar: Float32Array | null) => void>();
+let nextRequestId = 0;
+
+/** Pull one slice of interleaved-by-channel PCM from the main thread. */
+function requestAudioChunk(frameOffset: number, frameCount: number): Promise<Float32Array | null> {
+    const requestId = nextRequestId++;
+    return new Promise((resolve) => {
+        pendingAudioRequests.set(requestId, resolve);
+        self.postMessage({ type: 'requestAudioChunk', requestId, frameOffset, frameCount });
+    });
+}
+
+function requestVideoFrames(
+    frames: { clipId: string; assetId: string; sourceTimeMs: number }[]
+): Promise<FrameResponse> {
+    if (frames.length === 0) return Promise.resolve([]);
+    const requestId = nextRequestId++;
+    return new Promise((resolve) => {
+        pendingFrameRequests.set(requestId, resolve);
+        self.postMessage({ type: 'requestVideoFrames', requestId, frames });
+    });
+}
+
+self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; requestId: number; bitmaps: FrameResponse; planar: Float32Array | null }>) => {
+    if ((e.data as { type?: string }).type === 'audioChunk') {
+        const { requestId, planar } = e.data as { requestId: number; planar: Float32Array | null };
+        const resolve = pendingAudioRequests.get(requestId);
+        if (resolve) {
+            pendingAudioRequests.delete(requestId);
+            resolve(planar);
+        }
+        return;
+    }
+
+    // Frame deliveries are replies to our own requests, not a new export job.
+    if ((e.data as { type?: string }).type === 'videoFrames') {
+        const { requestId, bitmaps } = e.data as { type: 'videoFrames'; requestId: number; bitmaps: FrameResponse };
+        const resolve = pendingFrameRequests.get(requestId);
+        if (resolve) {
+            pendingFrameRequests.delete(requestId);
+            resolve(bitmaps);
+        }
+        return;
+    }
+
+    console.log('[Worker] Received export job');
+    const job = e.data as ExportWorkerData;
+    if (!job || !job.settings) {
+        // Should be impossible now that frame replies return early above, but if
+        // it ever happens again this reports instead of dying silently.
+        self.postMessage({
+            type: 'error',
+            error: `Worker received a message with no settings (keys: ${Object.keys(job ?? {}).join(',') || 'none'})`,
+        });
+        return;
+    }
+    const { settings, clips, imageBitmaps, videoAssets, audio, fileHandle } = job;
+    const videoMetaById = new Map((videoAssets ?? []).map(v => [v.assetId, v]));
+    const hasAudio = !!audio && audio.totalFrames > 0 && typeof AudioEncoder !== 'undefined';
     if (audio && !hasAudio && typeof AudioEncoder === 'undefined') {
         console.warn('[Worker] AudioEncoder not supported in this browser; exporting without audio.');
     }
@@ -53,11 +134,37 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
         return;
     }
 
+    // Upper bounds so the muxer can reserve metadata space up front and still
+    // write Fast Start output while streaming (no in-memory buffering).
+    // Overshooting only wastes a little reserved header space; undershooting
+    // aborts the export, so both estimates are deliberately generous.
+    const expectedVideoChunks = Math.ceil(maxDuration / (1000 / settings.fps)) + 16;
+    // AAC-LC emits one chunk per 1024 samples regardless of how large the
+    // AudioData blocks we feed it are — count in encoder frames, not input blocks.
+    const AAC_FRAME_SAMPLES = 1024;
+    const expectedAudioChunks = hasAudio
+        ? Math.ceil(
+            Math.min(audio!.totalFrames, Math.ceil((maxDuration / 1000) * audio!.sampleRate))
+            / AAC_FRAME_SAMPLES
+          ) + 64
+        : undefined;
+
+    let writableStream: FileSystemWritableFileStream | null = null;
+
     try {
         console.log('[Worker] Initializing VideoEncoder and Muxer...');
 
+        if (fileHandle) {
+            writableStream = await fileHandle.createWritable();
+            console.log('[Worker] Streaming output straight to disk.');
+        } else {
+            console.log('[Worker] No file handle — buffering output in memory.');
+        }
+
         const muxer = new Muxer({
-            target: new ArrayBufferTarget(),
+            target: writableStream
+                ? new FileSystemWritableFileStreamTarget(writableStream)
+                : new ArrayBufferTarget(),
             video: {
                 codec: 'avc',
                 width,
@@ -68,7 +175,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 numberOfChannels: audio!.numberOfChannels,
                 sampleRate: audio!.sampleRate
             } : undefined,
-            fastStart: 'in-memory'
+            // Streaming can't buffer everything, so reserve space instead; the
+            // in-memory fallback keeps the original behaviour.
+            fastStart: writableStream
+                ? { expectedVideoChunks, expectedAudioChunks }
+                : 'in-memory'
         });
 
         const encoder = new VideoEncoder({
@@ -104,10 +215,36 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 currentTimeMs >= c.startTimeMs && currentTimeMs < c.startTimeMs + c.durationMs
             );
 
+            // Ask for every video frame this timestamp needs in one round trip —
+            // one request per clip would multiply the seek latency.
+            const videoRequests = activeClips
+                .filter(c => videoMetaById.has(c.assetId))
+                .map(c => {
+                    const meta = videoMetaById.get(c.assetId)!;
+                    return {
+                        clipId: c.id,
+                        assetId: c.assetId,
+                        sourceTimeMs: getSourceTimeSec(c, meta.durationMs, currentTimeMs) * 1000,
+                    };
+                });
+            const videoFrames = await requestVideoFrames(videoRequests);
+            const videoFrameByClip = new Map(videoFrames.map(f => [f.clipId, f.bitmap]));
+
+            // Every video bitmap fetched for this frame must be closed once drawn —
+            // at 1080p a leak here reaches GBs within a few hundred frames.
+            const frameBitmapsToClose: ImageBitmap[] = videoFrames.map(f => f.bitmap);
+
+            /** Resolve a clip to its drawable source, image or video alike. */
+            const sourceForClip = (c: Clip): ImageBitmap | null => {
+                const vf = videoFrameByClip.get(c.id);
+                if (vf) return vf;
+                return imageBitmaps.find(b => b.assetId === c.assetId)?.bitmap ?? null;
+            };
+
             for (const clip of activeClips) {
-                const bitmapObj = imageBitmaps.find(b => b.assetId === clip.assetId);
-                if (!bitmapObj) continue;
-                const img = bitmapObj.bitmap;
+                const img = sourceForClip(clip);
+                if (!img) continue;
+                const isVideo = videoMetaById.has(clip.assetId);
 
                 let alpha = 1.0;
                 let deltaFlowPrevImg: ImageBitmap | null = null;
@@ -135,16 +272,22 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
 
                         if (clip.transitionType === 'dissolve') {
                             alpha = overlapProgress;
-                        } else if (clip.transitionType === 'delta-flow') {
+                        } else if (clip.transitionType === 'delta-flow' && !isVideo) {
+                            // Matches the preview: these build a displacement field from a
+                            // fixed pair of stills, so a moving source can't drive them.
                             deltaFlowProgress = overlapProgress;
-                            const prevBitmapObj = imageBitmaps.find(b => b.assetId === prevClip.assetId);
+                            const prevBitmapObj = !videoMetaById.has(prevClip.assetId)
+                                ? imageBitmaps.find(b => b.assetId === prevClip.assetId)
+                                : undefined;
                             if (prevBitmapObj) {
                                 deltaFlowPrevImg = prevBitmapObj.bitmap;
                                 deltaFlowPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
                             }
-                        } else if (clip.transitionType === 'breathing-morph') {
+                        } else if (clip.transitionType === 'breathing-morph' && !isVideo) {
                             breathingMorphProgress = overlapProgress;
-                            const prevBitmapObj = imageBitmaps.find(b => b.assetId === prevClip.assetId);
+                            const prevBitmapObj = !videoMetaById.has(prevClip.assetId)
+                                ? imageBitmaps.find(b => b.assetId === prevClip.assetId)
+                                : undefined;
                             if (prevBitmapObj) {
                                 breathingMorphPrevImg = prevBitmapObj.bitmap;
                                 breathingMorphPairKey = `${prevClip.id}:${prevClip.assetId}->${clip.id}:${clip.assetId}`;
@@ -226,7 +369,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                     dh = newH;
                 }
 
-                if (clip.transitionType === 'delta-flow' && deltaFlowPrevImg && deltaFlowPairKey) {
+                if (clip.transitionType === 'delta-flow' && !isVideo && deltaFlowPrevImg && deltaFlowPairKey) {
                     const sensitivity = clip.deltaFlowSensitivity ?? 0.55;
                     const strength = clip.deltaFlowStrength ?? 0.60;
                     const noiseAmount = clip.deltaFlowNoiseAmount ?? 0.30;
@@ -238,7 +381,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                         { sensitivity, strength, noiseAmount },
                         dx, dy, dw, dh
                     );
-                } else if (clip.transitionType === 'breathing-morph' && breathingMorphPrevImg && breathingMorphPairKey) {
+                } else if (clip.transitionType === 'breathing-morph' && !isVideo && breathingMorphPrevImg && breathingMorphPairKey) {
                     const turbulence = clip.breathingTurbulence ?? 0.5;
                     const swirl = clip.breathingSwirl ?? 0.5;
 
@@ -266,6 +409,10 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 ctx.globalAlpha = 1.0;
             }
 
+            // Free the decoded video frames now that they're composited.
+            for (const bmp of frameBitmapsToClose) bmp.close();
+            frameBitmapsToClose.length = 0;
+
             const frame = new VideoFrame(canvas, { timestamp: currentTimeMs * 1000 });
             encoder.encode(frame, { keyFrame: frameCount % (settings.fps * 2) === 0 });
             frame.close();
@@ -289,11 +436,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
 
         if (hasAudio) {
             console.log('[Worker] Encoding audio track...');
-            const { channelData, numberOfChannels, sampleRate } = audio!;
+            const { numberOfChannels, sampleRate, totalFrames: audioLength } = audio!;
             // Truncate to the video's length — audio outlasting the picture
             // would just play over a frozen/absent final frame.
             const totalFrames = Math.min(
-                channelData[0].length,
+                audioLength,
                 Math.floor((maxDuration / 1000) * sampleRate)
             );
 
@@ -313,10 +460,10 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
                 let frameOffset = 0;
                 while (frameOffset < totalFrames) {
                     const frames = Math.min(AUDIO_CHUNK_FRAMES, totalFrames - frameOffset);
-                    const planar = new Float32Array(frames * numberOfChannels);
-                    for (let c = 0; c < numberOfChannels; c++) {
-                        planar.set(channelData[c].subarray(frameOffset, frameOffset + frames), c * frames);
-                    }
+                    const chunk = await requestAudioChunk(frameOffset, frames);
+                    if (!chunk) break; // Source went away mid-export.
+                    const planar = new Float32Array(chunk.length);
+                    planar.set(chunk);
 
                     const audioData = new AudioData({
                         format: 'f32-planar',
@@ -344,14 +491,26 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData>) => {
 
         console.log('[Worker] Finalizing muxer...');
         muxer.finalize();
-        const buffer = muxer.target.buffer;
 
-        console.log('[Worker] Muxer finalized. Sending done message with buffer size:', buffer.byteLength);
-        self.postMessage({ type: 'done', buffer }, { transfer: [buffer] } as any);
+        if (writableStream) {
+            await writableStream.close();
+            writableStream = null;
+            console.log('[Worker] File written to disk.');
+            // Nothing to hand back — the file already exists on disk.
+            self.postMessage({ type: 'done', streamedToDisk: true });
+        } else {
+            const buffer = (muxer.target as ArrayBufferTarget).buffer;
+            console.log('[Worker] Muxer finalized. Sending done message with buffer size:', buffer.byteLength);
+            self.postMessage({ type: 'done', buffer }, { transfer: [buffer] } as any);
+        }
 
         imageBitmaps.forEach(b => b.bitmap.close());
     } catch (workerErr: any) {
         console.error('[Worker] Fatal error:', workerErr);
+        if (writableStream) {
+            // Leave no half-written file behind.
+            try { await writableStream.abort(); } catch { /* already gone */ }
+        }
         self.postMessage({ type: 'error', error: workerErr.message || String(workerErr) });
     }
 };

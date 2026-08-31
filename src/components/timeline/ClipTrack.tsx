@@ -5,7 +5,12 @@ import type { Clip } from '../../types';
 const HANDLE_WIDTH = 8; // px — the grabbable area on each edge
 const MIN_DURATION_MS = 100;
 
-export const ClipTrack: React.FC = () => {
+interface ClipTrackProps {
+    /** Which lane this is. Both lanes share the same move/trim behaviour. */
+    kind?: 'visual' | 'audio';
+}
+
+export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
     const clips = useProjectStore(s => s.data.clips);
     const assets = useProjectStore(s => s.data.assets);
     const zoomScale = useProjectStore(s => s.ui.zoomScale);
@@ -17,14 +22,31 @@ export const ClipTrack: React.FC = () => {
 
     const trackRef = useRef<HTMLDivElement>(null);
 
+    const [isDragOver, setIsDragOver] = React.useState(false);
+
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+        if (!isDragOver) setIsDragOver(true);
     };
+    const handleDragLeave = () => setIsDragOver(false);
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
+        setIsDragOver(false);
         const assetId = e.dataTransfer.getData('text/plain');
         if (!assetId) return;
+
+        const dropped = assets.find(a => a.id === assetId);
+        if (!dropped) return;
+
+        // Accept the drop on either lane. The clip is rendered in whichever lane
+        // matches its asset type, so silently ignoring a "wrong lane" drop just
+        // looked like the app was broken.
+        const droppedIsAudio = dropped.type === 'audio';
+        if ((kind === 'audio') !== droppedIsAudio) {
+            const targetLane = droppedIsAudio ? 'audio' : 'visual';
+            console.log(`[ClipTrack] Routing ${dropped.name} to the ${targetLane} lane.`);
+        }
 
         if (!trackRef.current) return;
         const rect = trackRef.current.getBoundingClientRect();
@@ -32,11 +54,19 @@ export const ClipTrack: React.FC = () => {
 
         const startTimeMs = dropX / zoomScale;
 
+        // Video and audio clips default to the full source length; stills stay at 3s.
+        const durationMs = (dropped.type === 'video' || dropped.type === 'audio') && dropped.duration
+            ? Math.round(dropped.duration)
+            : 3000;
+
         const newClip: Clip = {
             id: crypto.randomUUID(),
             assetId,
             startTimeMs: Math.round(startTimeMs),
-            durationMs: 3000,
+            durationMs,
+            sourceInMs: 0,
+            volume: 1,   // Video audio is live from the moment it's placed.
+            muted: false,
             transitionType: 'cut',
             transitionDurationMs: 0,
             fitMode: 'fit',
@@ -62,18 +92,25 @@ export const ClipTrack: React.FC = () => {
         <div
             ref={trackRef}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             style={{
-                height: '160px',
+                height: kind === 'audio' ? '90px' : '160px',
                 borderBottom: '2px solid var(--panel-border)',
                 position: 'relative',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                outline: '1px dashed rgba(255,255,255,0.2)',
-                outlineOffset: '-4px'
+                backgroundColor: isDragOver ? 'rgba(124, 92, 252, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                outline: isDragOver ? '2px dashed rgba(124, 92, 252, 0.8)' : '1px dashed rgba(255,255,255,0.2)',
+                outlineOffset: '-4px',
+                transition: 'background-color 0.15s, outline-color 0.15s'
             }}
         >
             {(() => {
-                const sortedClips = [...clips].sort((a, b) => a.startTimeMs - b.startTimeMs);
+                const laneClips = clips.filter(c => {
+                    const a = assets.find(x => x.id === c.assetId);
+                    const isAudio = a?.type === 'audio';
+                    return (kind === 'audio') === isAudio;
+                });
+                const sortedClips = [...laneClips].sort((a, b) => a.startTimeMs - b.startTimeMs);
                 return sortedClips.map((clip, index) => {
                     const asset = assets.find(a => a.id === clip.assetId);
                     const left = clip.startTimeMs * zoomScale;
@@ -179,7 +216,7 @@ export const ClipTrack: React.FC = () => {
                                 top: '4px',
                                 left: `${left}px`,
                                 width: `${Math.max(2, width)}px`,
-                                height: '152px',
+                                height: kind === 'audio' ? '82px' : '152px',
                                 backgroundColor: 'var(--clip-bg)',
                                 border: isSelected ? '2px solid var(--clip-selected)' : '1px solid var(--clip-border)',
                                 borderRadius: 'var(--radius-sm)',
@@ -193,6 +230,43 @@ export const ClipTrack: React.FC = () => {
                             {/* Thumbnail */}
                             {asset?.type === 'image' && (
                                 <img src={asset.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
+                            )}
+                            {asset?.type === 'audio' && asset.peaks && (
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    display: 'flex', alignItems: 'center', gap: '1px',
+                                    padding: '0 2px', pointerEvents: 'none',
+                                    opacity: clip.muted ? 0.3 : 1
+                                }}>
+                                    {asset.peaks.filter((_, i) => i % 4 === 0).map((pk, i) => (
+                                        <div key={i} style={{
+                                            flex: 1,
+                                            height: `${Math.max(2, Math.min(1, pk) * 60 * (clip.volume ?? 1))}px`,
+                                            background: 'rgba(148, 163, 184, 0.85)'
+                                        }} />
+                                    ))}
+                                </div>
+                            )}
+                            {asset?.type === 'video' && asset.hasAudio && asset.peaks && (
+                                <div style={{
+                                    position: 'absolute', left: 0, right: 0, bottom: 0, height: '22px',
+                                    display: 'flex', alignItems: 'flex-end', gap: '1px',
+                                    background: 'rgba(0,0,0,0.35)', pointerEvents: 'none', overflow: 'hidden',
+                                    zIndex: 2, // sits above the poster thumbnail
+                                    opacity: clip.muted ? 0.25 : 1
+                                }}>
+                                    {asset.peaks.filter((_, i) => i % 8 === 0).map((pk, i) => (
+                                        <div key={i} style={{
+                                            flex: 1,
+                                            height: `${Math.max(2, Math.min(1, pk) * 20 * (clip.volume ?? 1))}px`,
+                                            background: 'var(--accent-color, #7c5cfc)',
+                                            opacity: 0.85
+                                        }} />
+                                    ))}
+                                </div>
+                            )}
+                            {asset?.type === 'video' && asset.posterUrl && (
+                                <img src={asset.posterUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
                             )}
 
                             {/* Clip name */}
@@ -266,7 +340,7 @@ export const ClipTrack: React.FC = () => {
                     pointerEvents: 'none', 
                     textAlign: 'center' 
                 }}>
-                    DRAG IMAGES HERE
+                    {kind === 'audio' ? 'DRAG AUDIO HERE' : 'DRAG IMAGES OR VIDEO HERE'}
                     <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.7 }}>DROP FROM ASSETS PANE ON THE LEFT</div>
                 </div>
             ) : (

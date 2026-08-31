@@ -10,18 +10,27 @@
  */
 export function drawDownscaledImage(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-    img: HTMLImageElement | ImageBitmap,
+    img: HTMLImageElement | HTMLVideoElement | ImageBitmap,
     dx: number,
     dy: number,
     dw: number,
-    dh: number
+    dh: number,
+    srcW?: number,
+    srcH?: number
 ) {
     const minScaleRatio = 0.5; // Halve the resolution each step
     const targetW = dw;
     const targetH = dh;
 
-    let curW = img.width;
-    let curH = img.height;
+    // A <video> that was never added to the DOM reports width/height as 0, so
+    // callers pass videoWidth/videoHeight explicitly.
+    let curW = srcW ?? img.width;
+    let curH = srcH ?? img.height;
+
+    if (!curW || !curH) {
+        ctx.drawImage(img, dx, dy, dw, dh);
+        return;
+    }
 
     // If the image is not significantly larger than the target, draw it directly
     if (curW <= targetW * 2 || curH <= targetH * 2) {
