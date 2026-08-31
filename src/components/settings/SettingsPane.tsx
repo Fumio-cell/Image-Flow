@@ -73,6 +73,7 @@ export const SettingsPane: React.FC = () => {
     // Delta Flow and Breathing Morph build a displacement field from a fixed
     // pair of stills, so they can't run against a moving video source.
     const isVideoClip = clipAsset?.type === 'video';
+    const clipHasAudio = isVideoClip && clipAsset?.hasAudio === true;
     const updateClip = useProjectStore((s) => s.updateClip);
     const removeClip = useProjectStore((s) => s.removeClip);
 
@@ -142,6 +143,39 @@ export const SettingsPane: React.FC = () => {
                 min={100}
                 onChange={(v) => updateClip(clip.id, { durationMs: v })}
             />
+
+            {clipHasAudio && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                            Clip Volume
+                        </label>
+                        <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <input
+                                type="checkbox"
+                                checked={clip.muted ?? false}
+                                onChange={(e) => updateClip(clip.id, { muted: e.target.checked })}
+                            />
+                            Mute
+                        </label>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            disabled={clip.muted ?? false}
+                            value={clip.volume ?? 1}
+                            onChange={(e) => updateClip(clip.id, { volume: Number(e.target.value) })}
+                            style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '3ch', textAlign: 'right' }}>
+                            {Math.round((clip.volume ?? 1) * 100)}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Transition Type</label>

@@ -8,7 +8,55 @@ export interface VideoData {
     width: number;
     height: number;
     posterUrl?: string; // Undefined if thumbnail capture failed
+    hasAudio: boolean;
+    peaks?: number[];   // Waveform envelope for the timeline, if audio is present
 }
+
+const WAVEFORM_SAMPLES = 1000;
+// Decoding at a low rate is plenty for a waveform and keeps a long clip's
+// envelope extraction down to a few MB instead of hundreds.
+const WAVEFORM_DECODE_RATE = 8000;
+
+/**
+ * Pull a waveform envelope out of a video's audio track.
+ *
+ * Returns hasAudio:false for silent files — decodeAudioData rejects when
+ * there's no audio stream, which is exactly how we detect it.
+ */
+const extractAudioPeaks = async (
+    file: File
+): Promise<{ hasAudio: boolean; peaks?: number[] }> => {
+    let ctx: AudioContext | null = null;
+    try {
+        const buffer = await file.arrayBuffer();
+        const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        ctx = new Ctor({ sampleRate: WAVEFORM_DECODE_RATE });
+        const decoded = await ctx.decodeAudioData(buffer);
+        if (decoded.numberOfChannels === 0 || decoded.length === 0) {
+            return { hasAudio: false };
+        }
+
+        const data = decoded.getChannelData(0);
+        const blockSize = Math.max(1, Math.floor(data.length / WAVEFORM_SAMPLES));
+        const peaks = new Array<number>(WAVEFORM_SAMPLES);
+        for (let i = 0; i < WAVEFORM_SAMPLES; i++) {
+            let max = 0;
+            const start = i * blockSize;
+            for (let j = 0; j < blockSize; j++) {
+                const v = Math.abs(data[start + j] || 0);
+                if (v > max) max = v;
+            }
+            peaks[i] = max;
+        }
+        return { hasAudio: true, peaks };
+    } catch {
+        // No audio stream, or a codec the browser won't decode — either way the
+        // video is still perfectly usable, just silent.
+        return { hasAudio: false };
+    } finally {
+        if (ctx) await ctx.close().catch(() => { /* already closed */ });
+    }
+};
 
 /**
  * Probe a video file for duration/dimensions and grab a poster frame.
@@ -47,6 +95,7 @@ export const getVideoData = async (file: File): Promise<VideoData> => {
                     duration,
                     width: video.videoWidth,
                     height: video.videoHeight,
+                    hasAudio: false, // filled in after the poster step
                 });
             };
             video.onerror = () => {
@@ -58,7 +107,8 @@ export const getVideoData = async (file: File): Promise<VideoData> => {
         });
 
         const posterUrl = await capturePoster(video, meta);
-        return { ...meta, posterUrl };
+        const { hasAudio, peaks } = await extractAudioPeaks(file);
+        return { ...meta, posterUrl, hasAudio, peaks };
     } finally {
         cleanup();
     }

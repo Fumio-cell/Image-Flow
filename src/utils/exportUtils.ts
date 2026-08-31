@@ -50,7 +50,7 @@ export const startMP4Export = async (
         })));
 
         const disposeAudio = () => {
-            decodedAudio = null;
+            mixSources.length = 0;
             if (audioCtxRef) {
                 audioCtxRef.close().catch(() => { /* already closed */ });
                 audioCtxRef = null;
@@ -71,8 +71,21 @@ export const startMP4Export = async (
         // an AudioContext, which isn't available inside the worker, so this
         // has to happen here on the main thread.
         let audioPayload: { numberOfChannels: number; sampleRate: number; totalFrames: number } | undefined;
-        let decodedAudio: AudioBuffer | null = null;
         let audioCtxRef: AudioContext | null = null;
+
+        /**
+         * One contributor to the final mix: either the standalone audio asset
+         * (laid at the timeline origin) or a video clip's own soundtrack,
+         * positioned and scaled the way the clip is on the timeline.
+         */
+        interface MixSource {
+            buffer: AudioBuffer;
+            startFrame: number;   // where it lands on the export timeline
+            sourceInFrame: number; // offset into its own media
+            lengthFrames: number;  // how much of it to use
+            gain: number;
+        }
+        const mixSources: MixSource[] = [];
         const audioAsset = assets.find(a => a.type === 'audio');
         if (audioAsset) {
             try {
@@ -83,21 +96,52 @@ export const startMP4Export = async (
                 // here doubles as the resample step.
                 const audioCtx = new AudioContextCtor({ sampleRate: 48000 });
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                // Hold the decoded buffer here and stream slices to the worker on
-                // request. Copying every channel up front used to double peak
-                // memory — ~1.3GB for a 30-minute stereo track.
-                decodedAudio = audioBuffer;
                 audioCtxRef = audioCtx;
-                audioPayload = {
-                    numberOfChannels: audioBuffer.numberOfChannels,
-                    sampleRate: audioBuffer.sampleRate,
-                    totalFrames: audioBuffer.length,
-                };
+                mixSources.push({
+                    buffer: audioBuffer,
+                    startFrame: 0,
+                    sourceInFrame: 0,
+                    lengthFrames: audioBuffer.length,
+                    gain: 1,
+                });
             } catch (err) {
                 console.error('[ExportUtils] Failed to decode audio for export; exporting without audio.', err);
-                audioPayload = undefined;
-                decodedAudio = null;
             }
+        }
+
+        // 1c. Each video clip contributes its own soundtrack unless muted.
+        const SAMPLE_RATE = 48000;
+        if (!audioCtxRef) {
+            const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            audioCtxRef = new Ctor({ sampleRate: SAMPLE_RATE });
+        }
+        for (const clip of clips) {
+            if (clip.muted) continue;
+            const asset = assets.find(a => a.id === clip.assetId);
+            if (!asset || asset.type !== 'video' || !asset.hasAudio || !asset.file) continue;
+            try {
+                const decoded = await audioCtxRef.decodeAudioData(await asset.file.arrayBuffer());
+                const rate = decoded.sampleRate;
+                mixSources.push({
+                    buffer: decoded,
+                    startFrame: Math.round((clip.startTimeMs / 1000) * rate),
+                    sourceInFrame: Math.round(((clip.sourceInMs ?? 0) / 1000) * rate),
+                    lengthFrames: Math.round((clip.durationMs / 1000) * rate),
+                    gain: clip.volume ?? 1,
+                });
+            } catch (err) {
+                console.warn('[ExportUtils] Could not decode audio for video clip; it will be silent.', asset.name, err);
+            }
+        }
+
+        if (mixSources.length > 0) {
+            const numberOfChannels = Math.max(...mixSources.map(m => m.buffer.numberOfChannels));
+            const sampleRate = mixSources[0].buffer.sampleRate;
+            const totalFrames = Math.max(
+                ...mixSources.map(m => m.startFrame + Math.min(m.lengthFrames, m.buffer.length - m.sourceInFrame))
+            );
+            audioPayload = { numberOfChannels, sampleRate, totalFrames: Math.max(0, totalFrames) };
+            console.log(`[ExportUtils] Mixing ${mixSources.length} audio source(s), ${numberOfChannels}ch @ ${sampleRate}Hz`);
         }
 
         // 2. Init worker
@@ -173,14 +217,32 @@ export const startMP4Export = async (
                     requestId: number; frameOffset: number; frameCount: number;
                 };
                 let planar: Float32Array | null = null;
-                if (decodedAudio) {
-                    const ch = decodedAudio.numberOfChannels;
+                if (mixSources.length > 0 && audioPayload) {
+                    const ch = audioPayload.numberOfChannels;
                     planar = new Float32Array(frameCount * ch);
-                    for (let c = 0; c < ch; c++) {
-                        planar.set(
-                            decodedAudio.getChannelData(c).subarray(frameOffset, frameOffset + frameCount),
-                            c * frameCount
-                        );
+
+                    // Sum every source that overlaps this window, then clamp.
+                    for (const src of mixSources) {
+                        const usable = Math.min(src.lengthFrames, src.buffer.length - src.sourceInFrame);
+                        if (usable <= 0) continue;
+                        const from = Math.max(frameOffset, src.startFrame);
+                        const to = Math.min(frameOffset + frameCount, src.startFrame + usable);
+                        if (to <= from) continue;
+
+                        for (let c = 0; c < ch; c++) {
+                            // Mono sources feed every output channel.
+                            const srcCh = Math.min(c, src.buffer.numberOfChannels - 1);
+                            const data = src.buffer.getChannelData(srcCh);
+                            const outBase = c * frameCount;
+                            for (let i = from; i < to; i++) {
+                                const srcIdx = src.sourceInFrame + (i - src.startFrame);
+                                planar[outBase + (i - frameOffset)] += data[srcIdx] * src.gain;
+                            }
+                        }
+                    }
+                    for (let i = 0; i < planar.length; i++) {
+                        if (planar[i] > 1) planar[i] = 1;
+                        else if (planar[i] < -1) planar[i] = -1;
                     }
                 }
                 worker.postMessage(

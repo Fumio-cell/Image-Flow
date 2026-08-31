@@ -17,6 +17,7 @@ export interface AssetItem {
     duration?: number; // Milliseconds. Audio and video.
     peaks?: number[]; // Extracted waveform
     posterUrl?: string; // Video thumbnail (data URL)
+    hasAudio?: boolean; // Video only: whether the file carries an audio track
     width?: number;  // Intrinsic pixel width (video)
     height?: number; // Intrinsic pixel height (video)
 }
@@ -31,6 +32,8 @@ export interface Clip {
     startTimeMs: number; // Position on timeline
     durationMs: number; // Length of clip
     sourceInMs?: number; // Video only: offset into the source media where playback starts
+    volume?: number;     // 0..1 mix level for this clip's own audio (default 1)
+    muted?: boolean;     // Silence this clip's own audio without losing its volume setting
     transitionType: TransitionType;
     transitionDurationMs: number; // Used if type is 'dissolve', creates overlap
     fitMode: FitMode;

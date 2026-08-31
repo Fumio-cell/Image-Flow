@@ -44,6 +44,8 @@ export const ClipTrack: React.FC = () => {
             startTimeMs: Math.round(startTimeMs),
             durationMs,
             sourceInMs: 0,
+            volume: 1,   // Video audio is live from the moment it's placed.
+            muted: false,
             transitionType: 'cut',
             transitionDurationMs: 0,
             fitMode: 'fit',
@@ -200,6 +202,24 @@ export const ClipTrack: React.FC = () => {
                             {/* Thumbnail */}
                             {asset?.type === 'image' && (
                                 <img src={asset.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
+                            )}
+                            {asset?.type === 'video' && asset.hasAudio && asset.peaks && (
+                                <div style={{
+                                    position: 'absolute', left: 0, right: 0, bottom: 0, height: '22px',
+                                    display: 'flex', alignItems: 'flex-end', gap: '1px',
+                                    background: 'rgba(0,0,0,0.35)', pointerEvents: 'none', overflow: 'hidden',
+                                    zIndex: 2, // sits above the poster thumbnail
+                                    opacity: clip.muted ? 0.25 : 1
+                                }}>
+                                    {asset.peaks.filter((_, i) => i % 8 === 0).map((pk, i) => (
+                                        <div key={i} style={{
+                                            flex: 1,
+                                            height: `${Math.max(2, Math.min(1, pk) * 20 * (clip.volume ?? 1))}px`,
+                                            background: 'var(--accent-color, #7c5cfc)',
+                                            opacity: 0.85
+                                        }} />
+                                    ))}
+                                </div>
                             )}
                             {asset?.type === 'video' && asset.posterUrl && (
                                 <img src={asset.posterUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />

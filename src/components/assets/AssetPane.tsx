@@ -46,8 +46,8 @@ export const AssetPane: React.FC = () => {
                     }
                 } else if (isVideo) {
                     try {
-                        const { duration, width, height, posterUrl } = await getVideoData(file);
-                        updateAsset(missingAsset.id, { file, objectUrl, duration, width, height, posterUrl });
+                        const { duration, width, height, posterUrl, hasAudio, peaks } = await getVideoData(file);
+                        updateAsset(missingAsset.id, { file, objectUrl, duration, width, height, posterUrl, hasAudio, peaks });
                     } catch (err) {
                         console.error("Failed to parse video", err);
                         alert(`Failed to parse video: ${file.name}`);
@@ -70,8 +70,8 @@ export const AssetPane: React.FC = () => {
                     }
                 } else if (isVideo) {
                     try {
-                        const { duration, width, height, posterUrl } = await getVideoData(file);
-                        newAssets.push({ id, type: 'video', file, objectUrl, name: file.name, duration, width, height, posterUrl });
+                        const { duration, width, height, posterUrl, hasAudio, peaks } = await getVideoData(file);
+                        newAssets.push({ id, type: 'video', file, objectUrl, name: file.name, duration, width, height, posterUrl, hasAudio, peaks });
                     } catch (err) {
                         console.error("Failed to parse video", err);
                         alert(`Failed to parse video: ${file.name}`);
