@@ -165,6 +165,7 @@ export const SettingsPane: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <input
+                            className="volume-slider"
                             type="range"
                             min={0}
                             max={1}
@@ -172,7 +173,11 @@ export const SettingsPane: React.FC = () => {
                             disabled={clip.muted ?? false}
                             value={clip.volume ?? 1}
                             onChange={(e) => updateClip(clip.id, { volume: Number(e.target.value) })}
-                            style={{ flex: 1 }}
+                            style={{
+                                flex: 1,
+                                // Fill follows the value exactly, so 100% reaches the end.
+                                background: `linear-gradient(to right, var(--accent-color) 0%, var(--accent-color) ${(clip.volume ?? 1) * 100}%, rgba(255,255,255,0.15) ${(clip.volume ?? 1) * 100}%, rgba(255,255,255,0.15) 100%)`,
+                            }}
                         />
                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '3ch', textAlign: 'right' }}>
                             {Math.round((clip.volume ?? 1) * 100)}

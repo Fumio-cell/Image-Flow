@@ -193,3 +193,48 @@ input:focus, select:focus {
     font-size: 0.8rem;
     pointer-events: auto;
 }
+
+/* Volume slider.
+   The browser default insets the thumb, so at 100% the fill stops short of the
+   right edge and reads as "not quite maximum". Drawing the track ourselves lets
+   the fill run the full width at max. */
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--accent-color);
+  cursor: grab;
+  /* Keep the thumb inside the track at both ends without shortening the fill. */
+  margin-top: 0;
+}
+
+.volume-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--accent-color);
+  cursor: grab;
+}
+
+.volume-slider:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
