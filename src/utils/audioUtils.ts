@@ -1,5 +1,7 @@
 // utils/audioUtils.ts
 
+import { isAiff, decodeAiff } from './aiffDecoder';
+
 const WAVEFORM_SAMPLES = 1000;
 // A waveform doesn't need full fidelity. Decoding at a low rate is far faster
 // and lighter for long files — a 7-minute stereo WAV drops from hundreds of MB
@@ -34,6 +36,16 @@ const computePeaks = (data: Float32Array): number[] => {
 export const getAudioData = async (file: File): Promise<{ duration: number; peaks: number[] }> => {
     try {
         const buffer = await file.arrayBuffer();
+
+        // No browser decodes AIFF, so read it ourselves before trying Web Audio.
+        if (isAiff(buffer)) {
+            const { channelData, sampleRate, length } = decodeAiff(buffer);
+            return {
+                duration: (length / sampleRate) * 1000,
+                peaks: channelData.length > 0 ? computePeaks(channelData[0]) : new Array(WAVEFORM_SAMPLES).fill(0.1),
+            };
+        }
+
         const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const ctx = new Ctor({ sampleRate: WAVEFORM_DECODE_RATE });
         try {

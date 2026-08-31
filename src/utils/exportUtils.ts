@@ -1,5 +1,6 @@
 import { useProjectStore } from '../store/useProjectStore';
 import { seekVideo } from './videoCache';
+import { isAiff, decodeAiffToAudioBuffer } from './aiffDecoder';
 
 interface FrameRequest {
     clipId: string;
@@ -106,7 +107,11 @@ export const startMP4Export = async (
             const cached = decodeCache.get(asset.id);
             if (cached) return cached;
             if (!asset.file) return null;
-            const decoded = await ensureCtx().decodeAudioData(await asset.file.arrayBuffer());
+            const raw = await asset.file.arrayBuffer();
+            const ctx = ensureCtx();
+            const decoded = isAiff(raw)
+                ? decodeAiffToAudioBuffer(raw, ctx)
+                : await ctx.decodeAudioData(raw);
             decodeCache.set(asset.id, decoded);
             return decoded;
         };
