@@ -136,9 +136,17 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
 
     // Upper bounds so the muxer can reserve metadata space up front and still
     // write Fast Start output while streaming (no in-memory buffering).
-    const expectedVideoChunks = Math.ceil(maxDuration / (1000 / settings.fps)) + 2;
+    // Overshooting only wastes a little reserved header space; undershooting
+    // aborts the export, so both estimates are deliberately generous.
+    const expectedVideoChunks = Math.ceil(maxDuration / (1000 / settings.fps)) + 16;
+    // AAC-LC emits one chunk per 1024 samples regardless of how large the
+    // AudioData blocks we feed it are — count in encoder frames, not input blocks.
+    const AAC_FRAME_SAMPLES = 1024;
     const expectedAudioChunks = hasAudio
-        ? Math.ceil((maxDuration / 1000) * audio!.sampleRate / AUDIO_CHUNK_FRAMES) + 2
+        ? Math.ceil(
+            Math.min(audio!.totalFrames, Math.ceil((maxDuration / 1000) * audio!.sampleRate))
+            / AAC_FRAME_SAMPLES
+          ) + 64
         : undefined;
 
     let writableStream: FileSystemWritableFileStream | null = null;
