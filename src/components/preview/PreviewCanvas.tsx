@@ -3,6 +3,7 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { ImageCache } from '../../utils/imageCache';
 import { VideoCache } from '../../utils/videoCache';
 import { getSourceTimeSec } from '../../utils/videoTiming';
+import { getFadeWindow, getFadeGain } from '../../utils/audioMix';
 import { drawDownscaledImage } from '../../utils/imageDownscaler';
 import { applyGlitch } from '../../utils/glitchRenderer';
 import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../../utils/deltaFlowRenderer';
@@ -95,8 +96,10 @@ export const PreviewCanvas: React.FC = () => {
 
                     const targetSec = getSourceTimeSec(clip, asset.duration, playheadMs);
 
-                    // Hear the clip's own soundtrack at its mix level while playing.
-                    VideoCache.setLevel(video, clip.volume ?? 1, clip.muted ?? false, isPlaying);
+                    // Hear the clip's own soundtrack at its mix level while playing,
+                    // crossfading with neighbours the same way the export will.
+                    const fadeGain = getFadeGain(getFadeWindow(clip, clips, assets), playheadMs);
+                    VideoCache.setLevel(video, (clip.volume ?? 1) * fadeGain, clip.muted ?? false, isPlaying);
                     await VideoCache.sync(video, targetSec, isPlaying);
                     if (isStale()) return;
 

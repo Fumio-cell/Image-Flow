@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
+import { getFadeWindow, getFadeGain } from '../../utils/audioMix';
 
 /**
  * Plays the audio clips on the timeline during preview.
@@ -51,7 +52,8 @@ export const AudioPlayer: React.FC = () => {
             const clipEnd = clip.startTimeMs + clip.durationMs;
             const inRange = playheadMs >= clip.startTimeMs && playheadMs < clipEnd;
 
-            el.volume = Math.min(1, Math.max(0, clip.volume ?? 1));
+            const fadeGain = getFadeGain(getFadeWindow(clip, clips, assets), playheadMs);
+            el.volume = Math.min(1, Math.max(0, (clip.volume ?? 1) * fadeGain));
             el.muted = clip.muted ?? false;
 
             if (!inRange || !isPlaying) {
@@ -67,7 +69,7 @@ export const AudioPlayer: React.FC = () => {
                 el.play().catch(err => console.warn('[AudioPlayer] Playback blocked', err));
             }
         }
-    }, [isPlaying, playheadMs, audioClips]);
+    }, [isPlaying, playheadMs, audioClips, clips, assets]);
 
     // Silence everything on unmount.
     useEffect(() => {

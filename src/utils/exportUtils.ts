@@ -1,6 +1,7 @@
 import { useProjectStore } from '../store/useProjectStore';
 import { seekVideo } from './videoCache';
 import { isAiff, decodeAiffToAudioBuffer } from './aiffDecoder';
+import { getFadeWindow } from './audioMix';
 
 interface FrameRequest {
     clipId: string;
@@ -87,6 +88,11 @@ export const startMP4Export = async (
             sourceInFrame: number; // offset into its own media
             lengthFrames: number;  // how much of it to use
             gain: number;
+            /** Crossfade boundaries in timeline frames, for overlapping clips. */
+            fadeInStart: number;
+            fadeInEnd: number;
+            fadeOutStart: number;
+            fadeOutEnd: number;
         }
         const mixSources: MixSource[] = [];
         // 1b/1c. Every clip that carries sound contributes to the mix, placed at
@@ -130,12 +136,18 @@ export const startMP4Export = async (
                 const decoded = await decodeAsset(asset);
                 if (!decoded) continue;
                 const rate = decoded.sampleRate;
+                const fade = getFadeWindow(clip, clips, assets);
+                const toFrames = (ms: number) => Math.round((ms / 1000) * rate);
                 mixSources.push({
                     buffer: decoded,
-                    startFrame: Math.round((clip.startTimeMs / 1000) * rate),
+                    startFrame: toFrames(clip.startTimeMs),
                     sourceInFrame: Math.round(((clip.sourceInMs ?? 0) / 1000) * rate),
                     lengthFrames: Math.round((clip.durationMs / 1000) * rate),
                     gain: clip.volume ?? 1,
+                    fadeInStart: toFrames(fade.fadeInStartMs),
+                    fadeInEnd: toFrames(fade.fadeInEndMs),
+                    fadeOutStart: toFrames(fade.fadeOutStartMs),
+                    fadeOutEnd: toFrames(fade.fadeOutEndMs),
                 });
             } catch (err) {
                 console.warn('[ExportUtils] Could not decode audio for clip; it will be silent.', asset.name, err);
@@ -237,6 +249,23 @@ export const startMP4Export = async (
                         const to = Math.min(frameOffset + frameCount, src.startFrame + usable);
                         if (to <= from) continue;
 
+                        // Precompute the crossfade envelope once for this window.
+                        const envelope = new Float32Array(to - from);
+                        const fadeInLen = src.fadeInEnd - src.fadeInStart;
+                        const fadeOutLen = src.fadeOutEnd - src.fadeOutStart;
+                        for (let i = from; i < to; i++) {
+                            let g = src.gain;
+                            if (fadeInLen > 0 && i < src.fadeInEnd) {
+                                const p = Math.min(1, Math.max(0, (i - src.fadeInStart) / fadeInLen));
+                                g *= Math.sin((p * Math.PI) / 2);
+                            }
+                            if (fadeOutLen > 0 && i > src.fadeOutStart) {
+                                const p = Math.min(1, Math.max(0, (i - src.fadeOutStart) / fadeOutLen));
+                                g *= Math.cos((p * Math.PI) / 2);
+                            }
+                            envelope[i - from] = g;
+                        }
+
                         for (let c = 0; c < ch; c++) {
                             // Mono sources feed every output channel.
                             const srcCh = Math.min(c, src.buffer.numberOfChannels - 1);
@@ -244,7 +273,7 @@ export const startMP4Export = async (
                             const outBase = c * frameCount;
                             for (let i = from; i < to; i++) {
                                 const srcIdx = src.sourceInFrame + (i - src.startFrame);
-                                planar[outBase + (i - frameOffset)] += data[srcIdx] * src.gain;
+                                planar[outBase + (i - frameOffset)] += data[srcIdx] * envelope[i - from];
                             }
                         }
                     }
