@@ -22,19 +22,31 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
 
     const trackRef = useRef<HTMLDivElement>(null);
 
+    const [isDragOver, setIsDragOver] = React.useState(false);
+
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+        if (!isDragOver) setIsDragOver(true);
     };
+    const handleDragLeave = () => setIsDragOver(false);
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
+        setIsDragOver(false);
         const assetId = e.dataTransfer.getData('text/plain');
         if (!assetId) return;
 
         const dropped = assets.find(a => a.id === assetId);
         if (!dropped) return;
+
+        // Accept the drop on either lane. The clip is rendered in whichever lane
+        // matches its asset type, so silently ignoring a "wrong lane" drop just
+        // looked like the app was broken.
         const droppedIsAudio = dropped.type === 'audio';
-        if ((kind === 'audio') !== droppedIsAudio) return; // wrong lane
+        if ((kind === 'audio') !== droppedIsAudio) {
+            const targetLane = droppedIsAudio ? 'audio' : 'visual';
+            console.log(`[ClipTrack] Routing ${dropped.name} to the ${targetLane} lane.`);
+        }
 
         if (!trackRef.current) return;
         const rect = trackRef.current.getBoundingClientRect();
@@ -80,14 +92,16 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
         <div
             ref={trackRef}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             style={{
                 height: kind === 'audio' ? '90px' : '160px',
                 borderBottom: '2px solid var(--panel-border)',
                 position: 'relative',
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                outline: '1px dashed rgba(255,255,255,0.2)',
-                outlineOffset: '-4px'
+                backgroundColor: isDragOver ? 'rgba(124, 92, 252, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+                outline: isDragOver ? '2px dashed rgba(124, 92, 252, 0.8)' : '1px dashed rgba(255,255,255,0.2)',
+                outlineOffset: '-4px',
+                transition: 'background-color 0.15s, outline-color 0.15s'
             }}
         >
             {(() => {
