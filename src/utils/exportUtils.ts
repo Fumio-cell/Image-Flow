@@ -15,6 +15,31 @@ export const startMP4Export = async (
     onError: (err: string) => void
 ) => {
     try {
+        // Pick the destination first. Streaming into it keeps memory flat, which
+        // is what makes long exports possible at all — buffering a 30-minute
+        // 1080p master in RAM would be gigabytes.
+        let fileHandle: FileSystemFileHandle | undefined;
+        const picker = (window as unknown as {
+            showSaveFilePicker?: (o: unknown) => Promise<FileSystemFileHandle>;
+        }).showSaveFilePicker;
+
+        if (picker) {
+            try {
+                fileHandle = await picker({
+                    suggestedName: `image-flow-export-${Date.now()}.mp4`,
+                    types: [{ description: 'MP4 video', accept: { 'video/mp4': ['.mp4'] } }],
+                });
+            } catch (pickErr) {
+                if ((pickErr as DOMException)?.name === 'AbortError') {
+                    onError('Export cancelled.');
+                    return;
+                }
+                console.warn('[ExportUtils] Save dialog unavailable, falling back to in-memory export.', pickErr);
+            }
+        } else {
+            console.warn('[ExportUtils] File System Access API not supported; exporting via memory. Long exports may run out of RAM.');
+        }
+
         const state = useProjectStore.getState();
         const { settings, clips, assets } = state.data;
 
@@ -165,47 +190,15 @@ export const startMP4Export = async (
         }
 
         // 2. Init worker
-        // Pick the destination first. Streaming into it keeps memory flat, which
-        // is what makes long exports possible at all — buffering a 30-minute
-        // 1080p master in RAM would be gigabytes.
-        let fileHandle: FileSystemFileHandle | undefined;
-        const picker = (window as unknown as {
-            showSaveFilePicker?: (o: unknown) => Promise<FileSystemFileHandle>;
-        }).showSaveFilePicker;
-
-        if (picker) {
-            try {
-                fileHandle = await picker({
-                    suggestedName: `image-flow-export-${Date.now()}.mp4`,
-                    types: [{ description: 'MP4 video', accept: { 'video/mp4': ['.mp4'] } }],
-                });
-            } catch (pickErr) {
-                if ((pickErr as DOMException)?.name === 'AbortError') {
-                    onError('Export cancelled.');
-                    return;
-                }
-                console.warn('[ExportUtils] Save dialog unavailable, falling back to in-memory export.', pickErr);
-            }
-        } else {
-            console.warn('[ExportUtils] File System Access API not supported; exporting via memory. Long exports may run out of RAM.');
-        }
-
-        const workerUrl = new URL('../workers/exportWorker.ts', import.meta.url);
-        console.log('[ExportUtils] Initializing Worker from:', workerUrl.href);
-
-        // If the module can't even be fetched, say so plainly instead of
-        // surfacing an empty Event later.
-        try {
-            const probe = await fetch(workerUrl.href, { method: 'GET' });
-            console.log('[ExportUtils] Worker script fetch:', probe.status, probe.statusText, probe.headers.get('content-type'));
-            if (!probe.ok) {
-                throw new Error(`Worker script not reachable: HTTP ${probe.status} at ${workerUrl.href}`);
-            }
-        } catch (probeErr) {
-            console.error('[ExportUtils] Worker script probe failed:', probeErr);
-        }
-
-        const worker = new Worker(workerUrl, { type: 'module' });
+        // The new URL(...) must stay written inline inside new Worker(...):
+        // that exact shape is what lets the bundler find, compile and emit the
+        // worker. Hoisting it into a variable makes it ship the raw .ts, which
+        // the server labels video/mp2t and the browser then refuses to run.
+        console.log('[ExportUtils] Initializing Worker...');
+        const worker = new Worker(
+            new URL('../workers/exportWorker.ts', import.meta.url),
+            { type: 'module' }
+        );
 
         worker.onmessage = async (e) => {
             if (e.data.type === 'requestVideoFrames') {

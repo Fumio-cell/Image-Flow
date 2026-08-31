@@ -86,7 +86,14 @@ export const AssetPane: React.FC = () => {
                         updateAsset(missingAsset.id, { file, objectUrl, duration, width, height, posterUrl, hasAudio, peaks });
                     } catch (err) {
                         console.error("Failed to parse video", err);
-                        alert(`Failed to parse video: ${file.name}`);
+                        // Container is fine but the codec may not be — ProRes and
+                        // some HEVC .mov files simply can't be decoded in a browser.
+                        alert(
+                            `Could not read video: ${file.name}\n\n` +
+                            `Your browser can't decode this file's video codec ` +
+                            `(common with ProRes or HEVC .mov). ` +
+                            `Converting it to H.264 MP4 should work.`
+                        );
                     }
                 } else {
                     updateAsset(missingAsset.id, { file, objectUrl });
@@ -117,7 +124,14 @@ export const AssetPane: React.FC = () => {
                         newAssets.push({ id, type: 'video', file, objectUrl, name: file.name, duration, width, height, posterUrl, hasAudio, peaks });
                     } catch (err) {
                         console.error("Failed to parse video", err);
-                        alert(`Failed to parse video: ${file.name}`);
+                        // Container is fine but the codec may not be — ProRes and
+                        // some HEVC .mov files simply can't be decoded in a browser.
+                        alert(
+                            `Could not read video: ${file.name}\n\n` +
+                            `Your browser can't decode this file's video codec ` +
+                            `(common with ProRes or HEVC .mov). ` +
+                            `Converting it to H.264 MP4 should work.`
+                        );
                     }
                 }
             }
