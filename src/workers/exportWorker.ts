@@ -27,6 +27,10 @@ export interface ExportWorkerData {
     };
 }
 
+// Proves the worker module parsed and executed. If this line never appears in
+// the console, the failure is module loading/resolution, not the export logic.
+console.log('[Worker] module loaded');
+
 // AAC-LC per channel — 128kbps mono / 256kbps stereo, a solidly
 // high-quality/near-transparent range without ballooning export time.
 const AUDIO_BITRATE_PER_CHANNEL = 128_000;

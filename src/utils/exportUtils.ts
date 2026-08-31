@@ -90,8 +90,22 @@ export const startMP4Export = async (
         }
 
         // 2. Init worker
-        console.log('[ExportUtils] Initializing Worker...');
-        const worker = new Worker(new URL('../workers/exportWorker.ts', import.meta.url), { type: 'module' });
+        const workerUrl = new URL('../workers/exportWorker.ts', import.meta.url);
+        console.log('[ExportUtils] Initializing Worker from:', workerUrl.href);
+
+        // If the module can't even be fetched, say so plainly instead of
+        // surfacing an empty Event later.
+        try {
+            const probe = await fetch(workerUrl.href, { method: 'GET' });
+            console.log('[ExportUtils] Worker script fetch:', probe.status, probe.statusText, probe.headers.get('content-type'));
+            if (!probe.ok) {
+                throw new Error(`Worker script not reachable: HTTP ${probe.status} at ${workerUrl.href}`);
+            }
+        } catch (probeErr) {
+            console.error('[ExportUtils] Worker script probe failed:', probeErr);
+        }
+
+        const worker = new Worker(workerUrl, { type: 'module' });
 
         worker.onmessage = async (e) => {
             if (e.data.type === 'requestVideoFrames') {
