@@ -9,7 +9,7 @@ interface FrameRequest {
 
 export const startMP4Export = async (
     onProgress: (progress: number) => void,
-    onComplete: (url: string) => void,
+    onComplete: (url: string | null) => void,
     onError: (err: string) => void
 ) => {
     try {
@@ -49,6 +49,14 @@ export const startMP4Export = async (
             video.load();
         })));
 
+        const disposeAudio = () => {
+            decodedAudio = null;
+            if (audioCtxRef) {
+                audioCtxRef.close().catch(() => { /* already closed */ });
+                audioCtxRef = null;
+            }
+        };
+
         const disposeVideos = () => {
             for (const v of videoElements.values()) {
                 v.removeAttribute('src');
@@ -62,7 +70,9 @@ export const startMP4Export = async (
         // just muxing the source file through untouched. Decoding requires
         // an AudioContext, which isn't available inside the worker, so this
         // has to happen here on the main thread.
-        let audioPayload: { channelData: Float32Array[]; numberOfChannels: number; sampleRate: number } | undefined;
+        let audioPayload: { numberOfChannels: number; sampleRate: number; totalFrames: number } | undefined;
+        let decodedAudio: AudioBuffer | null = null;
+        let audioCtxRef: AudioContext | null = null;
         const audioAsset = assets.find(a => a.type === 'audio');
         if (audioAsset) {
             try {
@@ -73,23 +83,49 @@ export const startMP4Export = async (
                 // here doubles as the resample step.
                 const audioCtx = new AudioContextCtor({ sampleRate: 48000 });
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                const numberOfChannels = audioBuffer.numberOfChannels;
-                const channelData: Float32Array[] = [];
-                for (let c = 0; c < numberOfChannels; c++) {
-                    // .slice() copies out of the AudioBuffer's own storage so
-                    // the buffer we transfer to the worker is independent
-                    // (transferring detaches the underlying ArrayBuffer).
-                    channelData.push(audioBuffer.getChannelData(c).slice());
-                }
-                audioPayload = { channelData, numberOfChannels, sampleRate: audioBuffer.sampleRate };
-                await audioCtx.close();
+                // Hold the decoded buffer here and stream slices to the worker on
+                // request. Copying every channel up front used to double peak
+                // memory — ~1.3GB for a 30-minute stereo track.
+                decodedAudio = audioBuffer;
+                audioCtxRef = audioCtx;
+                audioPayload = {
+                    numberOfChannels: audioBuffer.numberOfChannels,
+                    sampleRate: audioBuffer.sampleRate,
+                    totalFrames: audioBuffer.length,
+                };
             } catch (err) {
                 console.error('[ExportUtils] Failed to decode audio for export; exporting without audio.', err);
                 audioPayload = undefined;
+                decodedAudio = null;
             }
         }
 
         // 2. Init worker
+        // Pick the destination first. Streaming into it keeps memory flat, which
+        // is what makes long exports possible at all — buffering a 30-minute
+        // 1080p master in RAM would be gigabytes.
+        let fileHandle: FileSystemFileHandle | undefined;
+        const picker = (window as unknown as {
+            showSaveFilePicker?: (o: unknown) => Promise<FileSystemFileHandle>;
+        }).showSaveFilePicker;
+
+        if (picker) {
+            try {
+                fileHandle = await picker({
+                    suggestedName: `image-flow-export-${Date.now()}.mp4`,
+                    types: [{ description: 'MP4 video', accept: { 'video/mp4': ['.mp4'] } }],
+                });
+            } catch (pickErr) {
+                if ((pickErr as DOMException)?.name === 'AbortError') {
+                    onError('Export cancelled.');
+                    return;
+                }
+                console.warn('[ExportUtils] Save dialog unavailable, falling back to in-memory export.', pickErr);
+            }
+        } else {
+            console.warn('[ExportUtils] File System Access API not supported; exporting via memory. Long exports may run out of RAM.');
+        }
+
         const workerUrl = new URL('../workers/exportWorker.ts', import.meta.url);
         console.log('[ExportUtils] Initializing Worker from:', workerUrl.href);
 
@@ -132,6 +168,28 @@ export const startMP4Export = async (
                 return;
             }
 
+            if (e.data.type === 'requestAudioChunk') {
+                const { requestId, frameOffset, frameCount } = e.data as {
+                    requestId: number; frameOffset: number; frameCount: number;
+                };
+                let planar: Float32Array | null = null;
+                if (decodedAudio) {
+                    const ch = decodedAudio.numberOfChannels;
+                    planar = new Float32Array(frameCount * ch);
+                    for (let c = 0; c < ch; c++) {
+                        planar.set(
+                            decodedAudio.getChannelData(c).subarray(frameOffset, frameOffset + frameCount),
+                            c * frameCount
+                        );
+                    }
+                }
+                worker.postMessage(
+                    { type: 'audioChunk', requestId, planar },
+                    planar ? [planar.buffer] : []
+                );
+                return;
+            }
+
             console.log('[ExportUtils] Received from worker:', e.data.type, e.data);
             if (e.data.type === 'progress') {
                 onProgress(e.data.progress);
@@ -139,14 +197,20 @@ export const startMP4Export = async (
                 console.error('[ExportUtils] Worker returned error:', e.data.error);
                 worker.terminate();
                 disposeVideos();
+                disposeAudio();
                 onError(e.data.error);
             } else if (e.data.type === 'done') {
-                console.log('[ExportUtils] Received done, creating Blob...');
-                const blob = new Blob([e.data.buffer], { type: 'video/mp4' });
-                const url = URL.createObjectURL(blob);
                 worker.terminate();
                 disposeVideos();
-                onComplete(url);
+                disposeAudio();
+                if (e.data.streamedToDisk) {
+                    console.log('[ExportUtils] Export written directly to disk.');
+                    onComplete(null); // Already saved; nothing to download.
+                } else {
+                    console.log('[ExportUtils] Received done, creating Blob...');
+                    const blob = new Blob([e.data.buffer], { type: 'video/mp4' });
+                    onComplete(URL.createObjectURL(blob));
+                }
             }
         };
 
@@ -166,6 +230,7 @@ export const startMP4Export = async (
             console.error('[ExportUtils] Worker onerror triggered:', detail, err);
             worker.terminate();
             disposeVideos();
+            disposeAudio();
             onError(
                 `Worker error: ${detail.message}\n` +
                 `at ${detail.filename}:${detail.lineno}:${detail.colno}\n` +
@@ -176,12 +241,10 @@ export const startMP4Export = async (
         // 3. Start encode
         console.log('[ExportUtils] Sending data to worker. Bitmaps length:', imageBitmaps.length, 'Audio:', !!audioPayload);
         const transferList: Transferable[] = imageBitmaps.map(b => b.bitmap);
-        if (audioPayload) {
-            transferList.push(...audioPayload.channelData.map(c => c.buffer));
-        }
         worker.postMessage({
             settings,
             clips,
+            fileHandle,
             imageBitmaps,
             videoAssets: videoAssets.map(a => ({
                 assetId: a.id,

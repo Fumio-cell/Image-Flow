@@ -65,6 +65,9 @@ export const TopBar: React.FC = () => {
                 (p) => setExportProgress(Math.round(p * 100)),
                 (url) => {
                     setExporting(false);
+                    // Streamed exports are already saved to the chosen file —
+                    // only the in-memory fallback hands back a URL to download.
+                    if (!url) return;
                     const a = document.createElement('a');
                     a.href = url;
                     a.download = `image-flow-${Date.now()}.mp4`;
@@ -78,6 +81,7 @@ export const TopBar: React.FC = () => {
                 },
                 (err) => {
                     setExporting(false);
+                    if (err === 'Export cancelled.') return; // User dismissed the save dialog.
                     alert(`Export failed: ${err}`);
                 }
             );

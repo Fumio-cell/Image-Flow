@@ -1,4 +1,4 @@
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
+import { Muxer, ArrayBufferTarget, FileSystemWritableFileStreamTarget } from 'mp4-muxer';
 import type { Clip, ProjectSettings } from '../types';
 import { drawDownscaledImage } from '../utils/imageDownscaler';
 import { applyGlitch } from '../utils/glitchRenderer';
@@ -18,12 +18,21 @@ export interface VideoAssetMeta {
 export interface ExportWorkerData {
     settings: ProjectSettings;
     clips: Clip[];
+    /**
+     * When present, the muxer writes straight to this file as it encodes, so
+     * peak memory stays flat no matter how long the piece is. Without it we
+     * fall back to buffering the whole MP4 in RAM (browsers with no File
+     * System Access API).
+     */
+    fileHandle?: FileSystemFileHandle;
     imageBitmaps: { assetId: string, bitmap: ImageBitmap }[];
     videoAssets?: VideoAssetMeta[];
     audio?: {
-        channelData: Float32Array[]; // one entry per channel, decoded PCM
+        // Metadata only — the PCM itself stays on the main thread and is
+        // streamed over in chunks so long tracks don't have to fit in memory twice.
         numberOfChannels: number;
         sampleRate: number;
+        totalFrames: number;
     };
 }
 
@@ -40,7 +49,17 @@ const AUDIO_CHUNK_FRAMES = 4096;
 // ImageBitmaps. Requests are keyed by id so responses can be awaited.
 type FrameResponse = { clipId: string; bitmap: ImageBitmap }[];
 const pendingFrameRequests = new Map<number, (bitmaps: FrameResponse) => void>();
+const pendingAudioRequests = new Map<number, (planar: Float32Array | null) => void>();
 let nextRequestId = 0;
+
+/** Pull one slice of interleaved-by-channel PCM from the main thread. */
+function requestAudioChunk(frameOffset: number, frameCount: number): Promise<Float32Array | null> {
+    const requestId = nextRequestId++;
+    return new Promise((resolve) => {
+        pendingAudioRequests.set(requestId, resolve);
+        self.postMessage({ type: 'requestAudioChunk', requestId, frameOffset, frameCount });
+    });
+}
 
 function requestVideoFrames(
     frames: { clipId: string; assetId: string; sourceTimeMs: number }[]
@@ -53,7 +72,17 @@ function requestVideoFrames(
     });
 }
 
-self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'; requestId: number; bitmaps: FrameResponse }>) => {
+self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; requestId: number; bitmaps: FrameResponse; planar: Float32Array | null }>) => {
+    if ((e.data as { type?: string }).type === 'audioChunk') {
+        const { requestId, planar } = e.data as { requestId: number; planar: Float32Array | null };
+        const resolve = pendingAudioRequests.get(requestId);
+        if (resolve) {
+            pendingAudioRequests.delete(requestId);
+            resolve(planar);
+        }
+        return;
+    }
+
     // Frame deliveries are replies to our own requests, not a new export job.
     if ((e.data as { type?: string }).type === 'videoFrames') {
         const { requestId, bitmaps } = e.data as { type: 'videoFrames'; requestId: number; bitmaps: FrameResponse };
@@ -76,9 +105,9 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
         });
         return;
     }
-    const { settings, clips, imageBitmaps, videoAssets, audio } = job;
+    const { settings, clips, imageBitmaps, videoAssets, audio, fileHandle } = job;
     const videoMetaById = new Map((videoAssets ?? []).map(v => [v.assetId, v]));
-    const hasAudio = !!audio && audio.channelData.length > 0 && typeof AudioEncoder !== 'undefined';
+    const hasAudio = !!audio && audio.totalFrames > 0 && typeof AudioEncoder !== 'undefined';
     if (audio && !hasAudio && typeof AudioEncoder === 'undefined') {
         console.warn('[Worker] AudioEncoder not supported in this browser; exporting without audio.');
     }
@@ -105,11 +134,29 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
         return;
     }
 
+    // Upper bounds so the muxer can reserve metadata space up front and still
+    // write Fast Start output while streaming (no in-memory buffering).
+    const expectedVideoChunks = Math.ceil(maxDuration / (1000 / settings.fps)) + 2;
+    const expectedAudioChunks = hasAudio
+        ? Math.ceil((maxDuration / 1000) * audio!.sampleRate / AUDIO_CHUNK_FRAMES) + 2
+        : undefined;
+
+    let writableStream: FileSystemWritableFileStream | null = null;
+
     try {
         console.log('[Worker] Initializing VideoEncoder and Muxer...');
 
+        if (fileHandle) {
+            writableStream = await fileHandle.createWritable();
+            console.log('[Worker] Streaming output straight to disk.');
+        } else {
+            console.log('[Worker] No file handle — buffering output in memory.');
+        }
+
         const muxer = new Muxer({
-            target: new ArrayBufferTarget(),
+            target: writableStream
+                ? new FileSystemWritableFileStreamTarget(writableStream)
+                : new ArrayBufferTarget(),
             video: {
                 codec: 'avc',
                 width,
@@ -120,7 +167,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
                 numberOfChannels: audio!.numberOfChannels,
                 sampleRate: audio!.sampleRate
             } : undefined,
-            fastStart: 'in-memory'
+            // Streaming can't buffer everything, so reserve space instead; the
+            // in-memory fallback keeps the original behaviour.
+            fastStart: writableStream
+                ? { expectedVideoChunks, expectedAudioChunks }
+                : 'in-memory'
         });
 
         const encoder = new VideoEncoder({
@@ -377,11 +428,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
 
         if (hasAudio) {
             console.log('[Worker] Encoding audio track...');
-            const { channelData, numberOfChannels, sampleRate } = audio!;
+            const { numberOfChannels, sampleRate, totalFrames: audioLength } = audio!;
             // Truncate to the video's length — audio outlasting the picture
             // would just play over a frozen/absent final frame.
             const totalFrames = Math.min(
-                channelData[0].length,
+                audioLength,
                 Math.floor((maxDuration / 1000) * sampleRate)
             );
 
@@ -401,10 +452,10 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
                 let frameOffset = 0;
                 while (frameOffset < totalFrames) {
                     const frames = Math.min(AUDIO_CHUNK_FRAMES, totalFrames - frameOffset);
-                    const planar = new Float32Array(frames * numberOfChannels);
-                    for (let c = 0; c < numberOfChannels; c++) {
-                        planar.set(channelData[c].subarray(frameOffset, frameOffset + frames), c * frames);
-                    }
+                    const chunk = await requestAudioChunk(frameOffset, frames);
+                    if (!chunk) break; // Source went away mid-export.
+                    const planar = new Float32Array(chunk.length);
+                    planar.set(chunk);
 
                     const audioData = new AudioData({
                         format: 'f32-planar',
@@ -432,14 +483,26 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: 'videoFrames'
 
         console.log('[Worker] Finalizing muxer...');
         muxer.finalize();
-        const buffer = muxer.target.buffer;
 
-        console.log('[Worker] Muxer finalized. Sending done message with buffer size:', buffer.byteLength);
-        self.postMessage({ type: 'done', buffer }, { transfer: [buffer] } as any);
+        if (writableStream) {
+            await writableStream.close();
+            writableStream = null;
+            console.log('[Worker] File written to disk.');
+            // Nothing to hand back — the file already exists on disk.
+            self.postMessage({ type: 'done', streamedToDisk: true });
+        } else {
+            const buffer = (muxer.target as ArrayBufferTarget).buffer;
+            console.log('[Worker] Muxer finalized. Sending done message with buffer size:', buffer.byteLength);
+            self.postMessage({ type: 'done', buffer }, { transfer: [buffer] } as any);
+        }
 
         imageBitmaps.forEach(b => b.bitmap.close());
     } catch (workerErr: any) {
         console.error('[Worker] Fatal error:', workerErr);
+        if (writableStream) {
+            // Leave no half-written file behind.
+            try { await writableStream.abort(); } catch { /* already gone */ }
+        }
         self.postMessage({ type: 'error', error: workerErr.message || String(workerErr) });
     }
 };
