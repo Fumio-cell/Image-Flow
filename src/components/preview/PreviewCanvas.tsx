@@ -95,6 +95,8 @@ export const PreviewCanvas: React.FC = () => {
 
                     const targetSec = getSourceTimeSec(clip, asset.duration, playheadMs);
 
+                    // Hear the clip's own soundtrack at its mix level while playing.
+                    VideoCache.setLevel(video, clip.volume ?? 1, clip.muted ?? false, isPlaying);
                     await VideoCache.sync(video, targetSec, isPlaying);
                     if (isStale()) return;
 

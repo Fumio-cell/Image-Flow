@@ -128,3 +128,46 @@ export const decodeAiffToAudioBuffer = (buffer: ArrayBuffer, ctx: BaseAudioConte
     for (let c = 0; c < channelData.length; c++) out.getChannelData(c).set(channelData[c]);
     return out;
 };
+
+/**
+ * Wrap decoded PCM in a WAV container.
+ *
+ * Browsers can't play AIFF in <audio>/<video>, so previewing one means handing
+ * the element an equivalent WAV built in memory. Export still reads the
+ * original file.
+ */
+export const encodeWav = (channelData: Float32Array[], sampleRate: number): Blob => {
+    const channels = channelData.length;
+    const frames = channelData[0]?.length ?? 0;
+    const bytes = frames * channels * 2; // 16-bit
+    const buffer = new ArrayBuffer(44 + bytes);
+    const v = new DataView(buffer);
+
+    const ascii = (offset: number, text: string) => {
+        for (let i = 0; i < text.length; i++) v.setUint8(offset + i, text.charCodeAt(i));
+    };
+
+    ascii(0, 'RIFF');
+    v.setUint32(4, 36 + bytes, true);
+    ascii(8, 'WAVE');
+    ascii(12, 'fmt ');
+    v.setUint32(16, 16, true);      // PCM header size
+    v.setUint16(20, 1, true);       // format: PCM
+    v.setUint16(22, channels, true);
+    v.setUint32(24, sampleRate, true);
+    v.setUint32(28, sampleRate * channels * 2, true); // byte rate
+    v.setUint16(32, channels * 2, true);              // block align
+    v.setUint16(34, 16, true);                        // bits per sample
+    ascii(36, 'data');
+    v.setUint32(40, bytes, true);
+
+    let o = 44;
+    for (let i = 0; i < frames; i++) {
+        for (let c = 0; c < channels; c++) {
+            const clamped = Math.max(-1, Math.min(1, channelData[c][i]));
+            v.setInt16(o, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+            o += 2;
+        }
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
+};

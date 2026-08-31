@@ -3,6 +3,7 @@ import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData } from '../../utils/audioUtils';
 import { getVideoData } from '../../utils/videoUtils';
+import { isAiff, decodeAiff, encodeWav } from '../../utils/aiffDecoder';
 import type { AssetItem } from '../../types';
 
 export const AssetPane: React.FC = () => {
@@ -44,7 +45,21 @@ export const AssetPane: React.FC = () => {
             }
 
             console.log(`[AssetPane] ${file.name} → ${isImage ? 'image' : isVideo ? 'video' : 'audio'}`);
-            const objectUrl = URL.createObjectURL(file);
+
+            // AIFF can't be played by any browser, so preview from an in-memory
+            // WAV instead. Export still reads the original file.
+            let objectUrl: string;
+            if (isAudio) {
+                const raw = await file.arrayBuffer();
+                if (isAiff(raw)) {
+                    const { channelData, sampleRate } = decodeAiff(raw);
+                    objectUrl = URL.createObjectURL(encodeWav(channelData, sampleRate));
+                } else {
+                    objectUrl = URL.createObjectURL(file);
+                }
+            } else {
+                objectUrl = URL.createObjectURL(file);
+            }
 
             // プロジェクト保存・読み込み時に file/objectUrl が欠落している同名アセットを探す
             const missingAsset = storeAssets.find(a => a.name === file.name && !a.file);

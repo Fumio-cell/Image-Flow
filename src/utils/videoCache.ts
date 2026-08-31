@@ -52,8 +52,8 @@ class VideoCacheHandler {
         if (existing) return existing;
 
         const video = document.createElement('video');
-        // Muted is mandatory: the audio track owns sound, and browsers block
-        // unmuted programmatic playback anyway.
+        // Starts muted so scrubbing is silent; playback unmutes it per clip
+        // via setLevel() below.
         video.muted = true;
         video.playsInline = true;
         video.preload = 'auto';
@@ -72,6 +72,15 @@ class VideoCacheHandler {
      * Playing: let the element run and only nudge currentTime when it drifts —
      * awaiting a seek every frame collapses the frame rate.
      */
+    /**
+     * Apply a clip's mix level. Audio only makes sense while playing — during a
+     * scrub the element is paused and stays silent regardless.
+     */
+    setLevel(video: HTMLVideoElement, volume: number, muted: boolean, isPlaying: boolean) {
+        video.volume = Math.min(1, Math.max(0, volume));
+        video.muted = muted || !isPlaying;
+    }
+
     async sync(video: HTMLVideoElement, targetSec: number, isPlaying: boolean): Promise<void> {
         if (!isPlaying) {
             if (!video.paused) video.pause();
