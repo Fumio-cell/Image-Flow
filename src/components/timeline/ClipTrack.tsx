@@ -326,7 +326,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                     pointerEvents: 'none', 
                     textAlign: 'center' 
                 }}>
-                    DRAG IMAGES HERE
+                    {kind === 'audio' ? 'DRAG AUDIO HERE' : 'DRAG IMAGES OR VIDEO HERE'}
                     <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.7 }}>DROP FROM ASSETS PANE ON THE LEFT</div>
                 </div>
             ) : (

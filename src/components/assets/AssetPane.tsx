@@ -17,17 +17,29 @@ export const AssetPane: React.FC = () => {
         if (!files.length) return;
 
         const newAssets: AssetItem[] = [];
+        const skipped: string[] = [];
         const storeAssets = useProjectStore.getState().data.assets;
         const updateAsset = useProjectStore.getState().updateAsset;
 
         for (const file of files) {
             const lowerName = file.name.toLowerCase();
-            const isImage = file.type.startsWith('image/');
+            const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+            const isImage = file.type.startsWith('image/') || IMAGE_EXTS.some(ext => lowerName.endsWith(ext));
             // Check video before audio: '.m4v' otherwise gets mistaken for '.m4a'.
             const isVideo = file.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mov') || lowerName.endsWith('.webm') || lowerName.endsWith('.m4v');
-            const isAudio = !isVideo && (file.type.startsWith('audio/') || lowerName.endsWith('.wav') || lowerName.endsWith('.mp3') || lowerName.endsWith('.m4a'));
+            // Accept anything the browser might decode. Whether it actually can
+            // is decided at decode time, where a failure is reported clearly.
+            const AUDIO_EXTS = ['.wav', '.mp3', '.m4a', '.aac', '.aif', '.aiff', '.flac', '.ogg', '.oga', '.opus', '.weba', '.caf', '.wma', '.mp4a'];
+            const isAudio = !isVideo && (
+                file.type.startsWith('audio/') ||
+                AUDIO_EXTS.some(ext => lowerName.endsWith(ext))
+            );
 
-            if (!isImage && !isAudio && !isVideo) continue;
+            if (!isImage && !isAudio && !isVideo) {
+                console.warn('[AssetPane] Unsupported file skipped:', file.name, file.type);
+                skipped.push(file.name);
+                continue;
+            }
 
             const objectUrl = URL.createObjectURL(file);
 
@@ -42,7 +54,13 @@ export const AssetPane: React.FC = () => {
                         updateAsset(missingAsset.id, { file, objectUrl, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
-                        alert(`Failed to parse audio: ${file.name}`);
+                        // The browser, not this app, decides which codecs decode.
+                        // AIFF in particular is commonly rejected.
+                        alert(
+                            `Could not read audio: ${file.name}\n\n` +
+                            `Your browser can't decode this format. ` +
+                            `Converting it to WAV, MP3 or FLAC should work.`
+                        );
                     }
                 } else if (isVideo) {
                     try {
@@ -66,7 +84,13 @@ export const AssetPane: React.FC = () => {
                         newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
-                        alert(`Failed to parse audio: ${file.name}`);
+                        // The browser, not this app, decides which codecs decode.
+                        // AIFF in particular is commonly rejected.
+                        alert(
+                            `Could not read audio: ${file.name}\n\n` +
+                            `Your browser can't decode this format. ` +
+                            `Converting it to WAV, MP3 or FLAC should work.`
+                        );
                     }
                 } else if (isVideo) {
                     try {
@@ -84,6 +108,10 @@ export const AssetPane: React.FC = () => {
             addAssets(newAssets);
         }
 
+        if (skipped.length > 0) {
+            alert(`Unsupported file type:\n${skipped.join('\n')}`);
+        }
+
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -99,7 +127,7 @@ export const AssetPane: React.FC = () => {
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                     multiple
-                    accept=".jpg,.jpeg,.png,.mp4,.mov,.webm,.m4v,.wav,.mp3,.m4a"
+                    accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.mp4,.mov,.webm,.m4v,.wav,.mp3,.m4a,.aac,.aif,.aiff,.flac,.ogg,.oga,.opus,.weba,.caf,.wma"
                     onChange={handleFileChange}
                 />
             </div>
