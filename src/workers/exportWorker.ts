@@ -7,6 +7,7 @@ import { DeltaFlowFieldCache } from '../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
 import { getSourceTimeSec } from '../utils/videoTiming';
+import { DEMO_MODE, DEMO_MAX_SECONDS } from '../config';
 
 export interface VideoAssetMeta {
     assetId: string;
@@ -126,6 +127,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
         const end = c.startTimeMs + c.durationMs;
         if (end > maxDuration) maxDuration = end;
     });
+    if (DEMO_MODE) maxDuration = Math.min(maxDuration, DEMO_MAX_SECONDS * 1000);
     console.log('[Worker] Max duration:', maxDuration, 'Clips count:', clips.length);
 
     if (maxDuration === 0) {

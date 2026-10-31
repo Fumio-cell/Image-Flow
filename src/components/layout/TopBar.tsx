@@ -1,9 +1,9 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState } from 'react';
 import { Download, FolderOpen, Save, FilePlus2, Play, Pause } from 'lucide-react';
 import { saveProject, loadProject } from '../../utils/projectPersistence';
 import { startMP4Export } from '../../utils/exportUtils';
 import { useProjectStore } from '../../store/useProjectStore';
-import { signInWithGoogle, openLemonSqueezyCheckout } from '../../utils/commercial';
+import { DEMO_MODE, DEMO_MAX_SECONDS, IS_PRO, BUY_URL } from '../../config';
 
 export const TopBar: React.FC = () => {
     const isPlaying = useProjectStore(s => s.ui.isPlaying);
@@ -13,30 +13,12 @@ export const TopBar: React.FC = () => {
 
     const [exporting, setExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState(0);
-    const [userStatus, setUserStatus] = useState<{ user: any, isPro: boolean }>({ user: null, isPro: false });
-
-    const handleAuthStatus = useCallback((e: any) => {
-        setUserStatus(e.detail);
-    }, []);
-
-    useEffect(() => {
-        window.addEventListener('auth:status', handleAuthStatus as EventListener);
-        return () => window.removeEventListener('auth:status', handleAuthStatus as EventListener);
-    }, [handleAuthStatus]);
-
-    const handleBuyPro = () => {
-        if (!userStatus.user) {
-            alert('Please login first to upgrade to PRO.');
-            signInWithGoogle();
-            return;
-        }
-        openLemonSqueezyCheckout(userStatus.user.id);
-    };
+    const [demoLimited, setDemoLimited] = useState(false);
 
     const handleGatedAction = (action: () => void) => {
-        if (!userStatus.isPro) {
+        if (!IS_PRO) {
             if (confirm('Exporting projects with more than 3 clips is a PRO feature. Would you like to upgrade?')) {
-                handleBuyPro();
+                window.open(BUY_URL, '_blank', 'noopener,noreferrer');
             }
             return;
         }
@@ -65,6 +47,7 @@ export const TopBar: React.FC = () => {
                 (p) => setExportProgress(Math.round(p * 100)),
                 (url) => {
                     setExporting(false);
+                    if (DEMO_MODE) setDemoLimited(true);
                     // Streamed exports are already saved to the chosen file —
                     // only the in-memory fallback hands back a URL to download.
                     if (!url) return;
@@ -93,11 +76,6 @@ export const TopBar: React.FC = () => {
             performExport();
         }
     };
-
-    useEffect(() => {
-        window.addEventListener('app:buyPro', handleBuyPro);
-        return () => window.removeEventListener('app:buyPro', handleBuyPro);
-    }, [userStatus]);
 
     return (
         <>
@@ -134,13 +112,19 @@ export const TopBar: React.FC = () => {
                     </button>
                     <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--panel-border)', margin: '0 0.5rem' }} />
                     <button 
-                        className={`btn btn-primary ${clips.length > 3 && !userStatus.isPro ? 'gated' : ''}`} 
-                        onClick={handleExport} 
+                        className={`btn btn-primary ${clips.length > 3 && !IS_PRO ? 'gated' : ''}`}
+                        onClick={handleExport}
                         disabled={exporting}
-                        title={clips.length > 3 && !userStatus.isPro ? 'Upgrade to PRO for more than 3 clips' : ''}
+                        title={clips.length > 3 && !IS_PRO ? 'Upgrade to PRO for more than 3 clips' : ''}
                     >
-                        <Download size={16} /> {exporting ? 'Exporting...' : 'Export MP4'}
+                        <Download size={16} /> {exporting ? 'Exporting...' : DEMO_MODE ? 'Export MP4 (10s preview)' : 'Export MP4'}
                     </button>
+                    {DEMO_MODE && demoLimited && (
+                        <p className="demo-notice">
+                            Demo export is limited to {DEMO_MAX_SECONDS} seconds.{' '}
+                            <a href={BUY_URL} target="_blank" rel="noopener noreferrer">Get the full version</a>
+                        </p>
+                    )}
                 </div>
             </div>
 
