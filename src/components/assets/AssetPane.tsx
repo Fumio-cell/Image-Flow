@@ -1,9 +1,8 @@
 import React, { useRef } from 'react';
 import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
-import { getAudioData, encodeWav } from '../../utils/audioUtils';
+import { getAudioData, createAudioPreviewUrl } from '../../utils/audioUtils';
 import { getVideoData } from '../../utils/videoUtils';
-import { isAiff, decodeAiff } from '../../lib/audio/aiffDecoder';
 import type { AssetItem } from '../../types';
 
 export const AssetPane: React.FC = () => {
@@ -46,18 +45,10 @@ export const AssetPane: React.FC = () => {
 
             console.log(`[AssetPane] ${file.name} → ${isImage ? 'image' : isVideo ? 'video' : 'audio'}`);
 
-            // AIFF can't be played by any browser, so preview from an in-memory
-            // WAV instead. Export still reads the original file.
             let objectUrl: string;
             if (isAudio) {
                 try {
-                    const raw = await file.arrayBuffer();
-                    if (isAiff(raw)) {
-                        const { channelData, sampleRate } = decodeAiff(raw);
-                        objectUrl = URL.createObjectURL(encodeWav(channelData, sampleRate));
-                    } else {
-                        objectUrl = URL.createObjectURL(file);
-                    }
+                    objectUrl = await createAudioPreviewUrl(file);
                 } catch (err) {
                     console.error("Failed to parse audio", err);
                     alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
@@ -77,6 +68,7 @@ export const AssetPane: React.FC = () => {
                         const { duration, peaks } = await getAudioData(file);
                         updateAsset(missingAsset.id, { file, objectUrl, duration, peaks });
                     } catch (err) {
+                        URL.revokeObjectURL(objectUrl);
                         console.error("Failed to parse audio", err);
                         alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     }
@@ -109,6 +101,7 @@ export const AssetPane: React.FC = () => {
                         console.log(`[AssetPane] ${file.name} decoded: ${(duration/1000).toFixed(1)}s`);
                         newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
                     } catch (err) {
+                        URL.revokeObjectURL(objectUrl);
                         console.error("Failed to parse audio", err);
                         alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     }

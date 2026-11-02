@@ -1,6 +1,6 @@
 // utils/audioUtils.ts
 
-import { isAiff } from '../lib/audio/aiffDecoder';
+import { isAiff, decodeAiff } from '../lib/audio/aiffDecoder';
 import { decodeAudioFile } from '../lib/audio/decodeAudioFile';
 
 const WAVEFORM_SAMPLES = 1000;
@@ -58,6 +58,18 @@ export const getAudioData = async (file: File): Promise<{ duration: number; peak
         return metadataOnly(file);
     }
 };
+
+/**
+ * URL for previewing an audio file in <audio>.
+ *
+ * AIFF can't be played by any browser, so it gets an in-memory WAV instead.
+ * Export still reads the original file. Throws if an AIFF can't be decoded.
+ */
+export async function createAudioPreviewUrl(file: File): Promise<string> {
+    if (!isAiff(await file.slice(0, 12).arrayBuffer())) return URL.createObjectURL(file);
+    const { channelData, sampleRate } = decodeAiff(await file.arrayBuffer());
+    return URL.createObjectURL(encodeWav(channelData, sampleRate));
+}
 
 /** Last resort: ask the media element how long it is, and draw a flat line. */
 const metadataOnly = (file: File): Promise<{ duration: number; peaks: number[] }> => {

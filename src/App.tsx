@@ -4,7 +4,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useProjectStore } from './store/useProjectStore';
-import { getAudioData } from './utils/audioUtils';
+import { getAudioData, createAudioPreviewUrl } from './utils/audioUtils';
 import type { AssetItem } from './types';
 
 function App() {
@@ -42,16 +42,18 @@ function App() {
 
           if (!isImage && !isAudio) continue;
 
-          const objectUrl = URL.createObjectURL(file);
           const id = crypto.randomUUID();
 
           if (isImage) {
-              newAssets.push({ id, type: 'image', file, objectUrl, name: file.name });
+              newAssets.push({ id, type: 'image', file, objectUrl: URL.createObjectURL(file), name: file.name });
           } else if (isAudio) {
+              let objectUrl: string | undefined;
               try {
+                  objectUrl = await createAudioPreviewUrl(file);
                   const { duration, peaks } = await getAudioData(file);
                   newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
               } catch (err) {
+                  if (objectUrl) URL.revokeObjectURL(objectUrl);
                   console.error("Failed to parse audio", err);
                   alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
               }
