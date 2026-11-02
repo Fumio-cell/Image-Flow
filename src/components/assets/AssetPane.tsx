@@ -1,9 +1,9 @@
 import React, { useRef } from 'react';
 import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
-import { getAudioData } from '../../utils/audioUtils';
+import { getAudioData, encodeWav } from '../../utils/audioUtils';
 import { getVideoData } from '../../utils/videoUtils';
-import { isAiff, decodeAiff, encodeWav } from '../../utils/aiffDecoder';
+import { isAiff, decodeAiff } from '../../lib/audio/aiffDecoder';
 import type { AssetItem } from '../../types';
 
 export const AssetPane: React.FC = () => {
@@ -32,7 +32,7 @@ export const AssetPane: React.FC = () => {
             const isVideo = file.type.startsWith('video/') || lowerName.endsWith('.mp4') || lowerName.endsWith('.mov') || lowerName.endsWith('.webm') || lowerName.endsWith('.m4v');
             // Accept anything the browser might decode. Whether it actually can
             // is decided at decode time, where a failure is reported clearly.
-            const AUDIO_EXTS = ['.wav', '.mp3', '.m4a', '.aac', '.aif', '.aiff', '.flac', '.ogg', '.oga', '.opus', '.weba', '.caf', '.wma', '.mp4a'];
+            const AUDIO_EXTS = ['.wav', '.mp3', '.m4a', '.aac', '.aif', '.aiff', '.aifc', '.flac', '.ogg', '.oga', '.opus', '.weba', '.caf', '.wma', '.mp4a'];
             const isAudio = !isVideo && (
                 file.type.startsWith('audio/') ||
                 AUDIO_EXTS.some(ext => lowerName.endsWith(ext))
@@ -50,12 +50,18 @@ export const AssetPane: React.FC = () => {
             // WAV instead. Export still reads the original file.
             let objectUrl: string;
             if (isAudio) {
-                const raw = await file.arrayBuffer();
-                if (isAiff(raw)) {
-                    const { channelData, sampleRate } = decodeAiff(raw);
-                    objectUrl = URL.createObjectURL(encodeWav(channelData, sampleRate));
-                } else {
-                    objectUrl = URL.createObjectURL(file);
+                try {
+                    const raw = await file.arrayBuffer();
+                    if (isAiff(raw)) {
+                        const { channelData, sampleRate } = decodeAiff(raw);
+                        objectUrl = URL.createObjectURL(encodeWav(channelData, sampleRate));
+                    } else {
+                        objectUrl = URL.createObjectURL(file);
+                    }
+                } catch (err) {
+                    console.error("Failed to parse audio", err);
+                    alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
+                    continue;
                 }
             } else {
                 objectUrl = URL.createObjectURL(file);
@@ -72,13 +78,7 @@ export const AssetPane: React.FC = () => {
                         updateAsset(missingAsset.id, { file, objectUrl, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
-                        // The browser, not this app, decides which codecs decode.
-                        // AIFF in particular is commonly rejected.
-                        alert(
-                            `Could not read audio: ${file.name}\n\n` +
-                            `Your browser can't decode this format. ` +
-                            `Converting it to WAV, MP3 or FLAC should work.`
-                        );
+                        alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     }
                 } else if (isVideo) {
                     try {
@@ -110,13 +110,7 @@ export const AssetPane: React.FC = () => {
                         newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
                     } catch (err) {
                         console.error("Failed to parse audio", err);
-                        // The browser, not this app, decides which codecs decode.
-                        // AIFF in particular is commonly rejected.
-                        alert(
-                            `Could not read audio: ${file.name}\n\n` +
-                            `Your browser can't decode this format. ` +
-                            `Converting it to WAV, MP3 or FLAC should work.`
-                        );
+                        alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     }
                 } else if (isVideo) {
                     try {
@@ -161,7 +155,7 @@ export const AssetPane: React.FC = () => {
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                     multiple
-                    accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.mp4,.mov,.webm,.m4v,.wav,.mp3,.m4a,.aac,.aif,.aiff,.flac,.ogg,.oga,.opus,.weba,.caf,.wma"
+                    accept="image/*,video/*,audio/*,.jpg,.jpeg,.png,.gif,.webp,.bmp,.mp4,.mov,.webm,.m4v,.wav,.mp3,.m4a,.aac,.aif,.aiff,.aifc,audio/aiff,audio/x-aiff,.flac,.ogg,.oga,.opus,.weba,.caf,.wma"
                     onChange={handleFileChange}
                 />
             </div>

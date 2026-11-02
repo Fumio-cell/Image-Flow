@@ -1,6 +1,6 @@
 import { useProjectStore } from '../store/useProjectStore';
 import { seekVideo } from './videoCache';
-import { isAiff, decodeAiffToAudioBuffer } from './aiffDecoder';
+import { decodeAudioFile } from '../lib/audio/decodeAudioFile';
 import { getFadeWindow } from './audioMix';
 
 interface FrameRequest {
@@ -139,10 +139,7 @@ export const startMP4Export = async (
             if (cached) return cached;
             if (!asset.file) return null;
             const raw = await asset.file.arrayBuffer();
-            const ctx = ensureCtx();
-            const decoded = isAiff(raw)
-                ? decodeAiffToAudioBuffer(raw, ctx)
-                : await ctx.decodeAudioData(raw);
+            const decoded = await decodeAudioFile(ensureCtx(), raw);
             decodeCache.set(asset.id, decoded);
             return decoded;
         };

@@ -1,6 +1,7 @@
 // utils/audioUtils.ts
 
-import { isAiff, decodeAiff } from './aiffDecoder';
+import { isAiff } from '../lib/audio/aiffDecoder';
+import { decodeAudioFile } from '../lib/audio/decodeAudioFile';
 
 const WAVEFORM_SAMPLES = 1000;
 // A waveform doesn't need full fidelity. Decoding at a low rate is far faster
@@ -34,22 +35,15 @@ const computePeaks = (data: Float32Array): number[] => {
  * refusing to import.
  */
 export const getAudioData = async (file: File): Promise<{ duration: number; peaks: number[] }> => {
+    let aiff = false;
     try {
         const buffer = await file.arrayBuffer();
-
-        // No browser decodes AIFF, so read it ourselves before trying Web Audio.
-        if (isAiff(buffer)) {
-            const { channelData, sampleRate, length } = decodeAiff(buffer);
-            return {
-                duration: (length / sampleRate) * 1000,
-                peaks: channelData.length > 0 ? computePeaks(channelData[0]) : new Array(WAVEFORM_SAMPLES).fill(0.1),
-            };
-        }
+        aiff = isAiff(buffer);
 
         const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         const ctx = new Ctor({ sampleRate: WAVEFORM_DECODE_RATE });
         try {
-            const decoded = await ctx.decodeAudioData(buffer);
+            const decoded = await decodeAudioFile(ctx, buffer);
             const peaks = decoded.numberOfChannels > 0
                 ? computePeaks(decoded.getChannelData(0))
                 : new Array(WAVEFORM_SAMPLES).fill(0.1);
@@ -58,6 +52,8 @@ export const getAudioData = async (file: File): Promise<{ duration: number; peak
             await ctx.close().catch(() => { /* already closed */ });
         }
     } catch (err) {
+        // <audio> can't play AIFF either, so the decoder's reason is the useful one.
+        if (aiff) throw err;
         console.warn('[audioUtils] decodeAudioData failed, falling back to <audio> metadata', file.name, err);
         return metadataOnly(file);
     }
@@ -98,4 +94,47 @@ const metadataOnly = (file: File): Promise<{ duration: number; peaks: number[] }
         // If metadata somehow arrived before the handler was attached, don't wait.
         if (audio.readyState >= 1) onReady();
     });
+};
+
+/**
+ * Wrap decoded PCM in a WAV container.
+ *
+ * Browsers can't play AIFF in <audio>/<video>, so previewing one means handing
+ * the element an equivalent WAV built in memory. Export still reads the
+ * original file.
+ */
+export const encodeWav = (channelData: Float32Array[], sampleRate: number): Blob => {
+    const channels = channelData.length;
+    const frames = channelData[0]?.length ?? 0;
+    const bytes = frames * channels * 2; // 16-bit
+    const buffer = new ArrayBuffer(44 + bytes);
+    const v = new DataView(buffer);
+
+    const ascii = (offset: number, text: string) => {
+        for (let i = 0; i < text.length; i++) v.setUint8(offset + i, text.charCodeAt(i));
+    };
+
+    ascii(0, 'RIFF');
+    v.setUint32(4, 36 + bytes, true);
+    ascii(8, 'WAVE');
+    ascii(12, 'fmt ');
+    v.setUint32(16, 16, true);      // PCM header size
+    v.setUint16(20, 1, true);       // format: PCM
+    v.setUint16(22, channels, true);
+    v.setUint32(24, sampleRate, true);
+    v.setUint32(28, sampleRate * channels * 2, true); // byte rate
+    v.setUint16(32, channels * 2, true);              // block align
+    v.setUint16(34, 16, true);                        // bits per sample
+    ascii(36, 'data');
+    v.setUint32(40, bytes, true);
+
+    let o = 44;
+    for (let i = 0; i < frames; i++) {
+        for (let c = 0; c < channels; c++) {
+            const clamped = Math.max(-1, Math.min(1, channelData[c][i]));
+            v.setInt16(o, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+            o += 2;
+        }
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
 };

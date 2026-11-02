@@ -1,5 +1,7 @@
 // utils/videoUtils.ts
 
+import { decodeAudioFile } from '../lib/audio/decodeAudioFile';
+
 const METADATA_TIMEOUT_MS = 10000;
 const POSTER_MAX_WIDTH = 320;
 
@@ -31,7 +33,7 @@ const extractAudioPeaks = async (
         const buffer = await file.arrayBuffer();
         const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         ctx = new Ctor({ sampleRate: WAVEFORM_DECODE_RATE });
-        const decoded = await ctx.decodeAudioData(buffer);
+        const decoded = await decodeAudioFile(ctx, buffer);
         if (decoded.numberOfChannels === 0 || decoded.length === 0) {
             return { hasAudio: false };
         }

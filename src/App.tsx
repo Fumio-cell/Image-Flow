@@ -32,7 +32,7 @@ function App() {
       if (!files.length) return;
 
       const newAssets: AssetItem[] = [];
-      const isAudioType = (f: File) => f.type.startsWith('audio/') || f.name.endsWith('.wav') || f.name.endsWith('.mp3') || f.name.endsWith('.m4a');
+      const isAudioType = (f: File) => f.type.startsWith('audio/') || f.name.endsWith('.wav') || f.name.endsWith('.mp3') || f.name.endsWith('.m4a') || /\.(aif|aiff|aifc)$/i.test(f.name);
 
       useProjectStore.getState().setIsPlaying(false); // pause playback while dropping
 
@@ -53,6 +53,7 @@ function App() {
                   newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
               } catch (err) {
                   console.error("Failed to parse audio", err);
+                  alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
               }
           }
       }
