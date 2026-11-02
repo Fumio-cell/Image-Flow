@@ -181,7 +181,6 @@ input:focus, select:focus {
     opacity: 0.5 !important;
     cursor: not-allowed !important;
     position: relative;
-    pointer-events: none;
 }
 
 .gated::after {
@@ -191,7 +190,6 @@ input:focus, select:focus {
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.8rem;
-    pointer-events: auto;
 }
 
 /* Volume slider.
