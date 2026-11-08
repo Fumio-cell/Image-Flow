@@ -10,6 +10,7 @@ import { renderDeltaFlowFrame, DELTA_FLOW_WORK_RES } from '../../utils/deltaFlow
 import { DeltaFlowFieldCache } from '../../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../../utils/breathingMorphFieldCache';
+import { findPrevVisualClip } from '../../utils/prevVisualClip';
 import type { Clip } from '../../types';
 
 /** One drawable layer for the current frame — an image or a live video element. */
@@ -165,9 +166,8 @@ export const PreviewCanvas: React.FC = () => {
                 // Glitch can gate on it regardless of which transition is selected.
                 let overlapProgress: number | null = null;
 
-                const clipIndex = sortedAllClips.findIndex(c => c.id === clip.id);
-                if (clipIndex > 0) {
-                    const prevClip = sortedAllClips[clipIndex - 1];
+                const prevClip = findPrevVisualClip(clips, assets, clip);
+                if (prevClip) {
                     const prevEnd = prevClip.startTimeMs + prevClip.durationMs;
                     const overlapMs = Math.max(0, prevEnd - clip.startTimeMs);
 

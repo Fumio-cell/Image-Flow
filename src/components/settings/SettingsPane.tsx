@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
+import { findPrevVisualClip } from '../../utils/prevVisualClip';
 
 /** A number input that only commits on blur or Enter — avoids undo-per-keystroke */
 const NumberField: React.FC<{
@@ -123,10 +124,8 @@ export const SettingsPane: React.FC = () => {
         );
     }
 
-    // Find the previous clip (by timeline order) to calculate overlap info
-    const sorted = [...clips].sort((a, b) => a.startTimeMs - b.startTimeMs);
-    const clipIndex = sorted.findIndex(c => c.id === clip.id);
-    const prevClip = clipIndex > 0 ? sorted[clipIndex - 1] : null;
+    // Find the previous visual clip (by timeline order) to calculate overlap info
+    const prevClip = findPrevVisualClip(clips, assets, clip);
     const prevEnd = prevClip ? prevClip.startTimeMs + prevClip.durationMs : 0;
     const overlapMs = prevClip ? Math.max(0, prevEnd - clip.startTimeMs) : 0;
 
@@ -211,7 +210,7 @@ export const SettingsPane: React.FC = () => {
 
             {(clip.transitionType === 'dissolve' || clip.transitionType === 'delta-flow' || clip.transitionType === 'glitch' || clip.transitionType === 'breathing-morph') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.4rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
-                    {clipIndex === 0 ? (
+                    {!prevClip ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                             Transition not available for the first clip.
                         </label>
@@ -224,7 +223,7 @@ export const SettingsPane: React.FC = () => {
                             No overlap with previous clip.
                         </label>
                     )}
-                    {clipIndex > 0 && overlapMs <= 0 && prevClip && (
+                    {prevClip && overlapMs <= 0 && (
                         <button
                             className="btn btn-secondary"
                             style={{ fontSize: '10px', padding: '2px 4px' }}

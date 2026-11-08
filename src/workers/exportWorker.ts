@@ -7,6 +7,7 @@ import { DeltaFlowFieldCache } from '../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
 import { getSourceTimeSec } from '../utils/videoTiming';
+import { findPrevVisualClip, type PrevLookupAsset } from '../utils/prevVisualClip';
 import { DEMO_MODE, DEMO_MAX_SECONDS } from '../config';
 
 export interface VideoAssetMeta {
@@ -108,6 +109,13 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
     }
     const { settings, clips, imageBitmaps, videoAssets, audio, fileHandle } = job;
     const videoMetaById = new Map((videoAssets ?? []).map(v => [v.assetId, v]));
+    // The worker is only handed image and video assets, so a clip pointing at
+    // anything else is an audio clip. Give the previous-clip lookup that view.
+    const imageIds = new Set(imageBitmaps.map(b => b.assetId));
+    const lookupAssets: PrevLookupAsset[] = clips.map(c => ({
+        id: c.assetId,
+        type: videoMetaById.has(c.assetId) ? 'video' : imageIds.has(c.assetId) ? 'image' : 'audio',
+    }));
     const hasAudio = !!audio && audio.totalFrames > 0 && typeof AudioEncoder !== 'undefined';
     if (audio && !hasAudio && typeof AudioEncoder === 'undefined') {
         console.warn('[Worker] AudioEncoder not supported in this browser; exporting without audio.');
@@ -263,9 +271,8 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                 // Glitch can gate on it regardless of which transition is selected.
                 let overlapProgress: number | null = null;
 
-                const clipIndex = sortedAllClips.findIndex(c => c.id === clip.id);
-                if (clipIndex > 0) {
-                    const prevClip = sortedAllClips[clipIndex - 1];
+                const prevClip = findPrevVisualClip(clips, lookupAssets, clip);
+                if (prevClip) {
                     const prevEnd = prevClip.startTimeMs + prevClip.durationMs;
                     const overlapMs = Math.max(0, prevEnd - clip.startTimeMs);
 
