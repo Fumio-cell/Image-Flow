@@ -38,6 +38,40 @@ const NumberField: React.FC<{
     );
 };
 
+/** A number input in SECONDS (step 0.1) that edits a millisecond value; commits on blur or Enter. */
+const SecondsField: React.FC<{
+    label: string;
+    valueMs: number;
+    onChange: (ms: number) => void;
+}> = ({ label, valueMs, onChange }) => {
+    const [local, setLocal] = useState(String(valueMs / 1000));
+
+    useEffect(() => {
+        setLocal(String(valueMs / 1000));
+    }, [valueMs]);
+
+    const commit = () => {
+        const sec = parseFloat(local);
+        if (isNaN(sec)) { setLocal(String(valueMs / 1000)); return; } // revert
+        onChange(Math.max(0, Math.round(sec * 1000)));
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
+            <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={local}
+                onChange={(e) => setLocal(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+            />
+        </div>
+    );
+};
+
 const RangeField: React.FC<{
     label: string;
     value: number;
@@ -69,6 +103,7 @@ export const SettingsPane: React.FC = () => {
     const selectedClipId = useProjectStore((s) => s.ui.selectedClipId);
     const clips = useProjectStore((s) => s.data.clips);
     const assets = useProjectStore((s) => s.data.assets);
+    const autoPack = useProjectStore((s) => s.data.settings.autoPack === true);
     const clip = clips.find(c => c.id === selectedClipId);
     const clipAsset = clip ? assets.find(a => a.id === clip.assetId) : undefined;
     // Delta Flow and Breathing Morph build a displacement field from a fixed
@@ -128,17 +163,29 @@ export const SettingsPane: React.FC = () => {
     const prevClip = findPrevVisualClip(clips, assets, clip);
     const prevEnd = prevClip ? prevClip.startTimeMs + prevClip.durationMs : 0;
     const overlapMs = prevClip ? Math.max(0, prevEnd - clip.startTimeMs) : 0;
+    const packedVisual = autoPack && clipAsset?.type !== 'audio';
 
     return (
         <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '0.75rem' }}>
             <h3 style={{ fontSize: '14px', margin: 0 }}>Clip Settings</h3>
 
-            <NumberField
-                label="Start Time (ms)"
-                value={clip.startTimeMs}
-                min={0}
-                onChange={(v) => updateClip(clip.id, { startTimeMs: v })}
-            />
+            {packedVisual ? (
+                // Auto-pack derives the start from the clips before it.
+                <div
+                    title="Start is set automatically in Auto-pack mode."
+                    style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', opacity: 0.45, cursor: 'not-allowed' }}
+                >
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', cursor: 'not-allowed' }}>Start Time (ms)</label>
+                    <input type="number" value={clip.startTimeMs} disabled readOnly style={{ cursor: 'not-allowed' }} />
+                </div>
+            ) : (
+                <NumberField
+                    label="Start Time (ms)"
+                    value={clip.startTimeMs}
+                    min={0}
+                    onChange={(v) => updateClip(clip.id, { startTimeMs: v })}
+                />
+            )}
 
             <NumberField
                 label="Duration (ms)"
@@ -146,6 +193,14 @@ export const SettingsPane: React.FC = () => {
                 min={100}
                 onChange={(v) => updateClip(clip.id, { durationMs: v })}
             />
+
+            {packedVisual && prevClip && (
+                <SecondsField
+                    label="Overlap with previous (s)"
+                    valueMs={clip.transitionDurationMs}
+                    onChange={(ms) => updateClip(clip.id, { transitionDurationMs: ms })}
+                />
+            )}
 
             {clipHasAudio && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -212,7 +267,7 @@ export const SettingsPane: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.4rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
                     {!prevClip ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            Transition not available for the first clip.
+                            The transition applies when this clip is not first.
                         </label>
                     ) : overlapMs > 0 ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-accent)' }}>
@@ -223,7 +278,7 @@ export const SettingsPane: React.FC = () => {
                             No overlap with previous clip.
                         </label>
                     )}
-                    {prevClip && overlapMs <= 0 && (
+                    {prevClip && overlapMs <= 0 && !packedVisual && (
                         <button
                             className="btn btn-secondary"
                             style={{ fontSize: '10px', padding: '2px 4px' }}

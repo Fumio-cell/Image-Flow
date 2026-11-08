@@ -4,6 +4,8 @@ export type FPS = 24 | 30;
 export interface ProjectSettings {
     resolution: Resolution;
     fps: FPS;
+    /** Visual lane is a packed row (see utils/packClips). Saved with the project; a file without it loads as false. */
+    autoPack?: boolean;
 }
 
 export type AssetType = 'image' | 'audio' | 'video';

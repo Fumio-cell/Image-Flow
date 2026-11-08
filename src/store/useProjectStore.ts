@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import type { ProjectData, AssetItem, Clip, ProjectSettings } from '../types';
+import {
+    DEFAULT_OVERLAP_MS, PACK_TRIGGER_KEYS, defaultTransitionFor, isVisualClip,
+    normalizeJunctionUpdate, packClips, visualRow,
+} from '../utils/packClips';
 
 interface UIState {
     selectedClipId: string | null;
@@ -43,6 +47,11 @@ interface ProjectStoreActions {
     removeClip: (id: string) => void;
     setClips: (clips: Clip[]) => void; // for bulk reorder
 
+    // Auto-pack (visual lane). Each is exactly one undo step.
+    insertClipAt: (clip: Clip, index: number) => void;   // slot in the visual row, then re-pack
+    moveClipToIndex: (id: string, index: number) => void; // slot among the other visual clips, then re-pack
+    setAutoPack: (on: boolean) => void;                   // ON re-packs a freely arranged project once
+
     // UI
     setSelectedClipId: (id: string | null) => void;
     setPlayheadMs: (ms: number) => void;
@@ -55,6 +64,7 @@ const initialData: ProjectData = {
     settings: {
         resolution: '1920x1080',
         fps: 30,
+        autoPack: true, // a new project starts as a packed row
     },
     assets: [],
     clips: []
@@ -69,6 +79,21 @@ const initialUI: UIState = {
 };
 
 const MAX_HISTORY = 30;
+
+/**
+ * Apply a clip update. With Auto-pack on, an edit that changes the layout of a
+ * visual clip (length, transition, overlap) re-packs the row, so the clips after
+ * it ripple. With it off this is the plain merge it always was.
+ */
+function applyClipUpdate(state: ProjectStoreState, id: string, updates: Partial<Clip>): Clip[] {
+    const { clips, assets } = state.data;
+    const target = clips.find(c => c.id === id);
+    const packing = state.data.settings.autoPack === true && !!target && isVisualClip(target, assets) &&
+        PACK_TRIGGER_KEYS.some(k => k in updates);
+    const effective = packing ? normalizeJunctionUpdate(clips, assets, target!, updates) : updates;
+    const next = clips.map(c => c.id === id ? { ...c, ...effective } : c);
+    return packing ? packClips(next, assets) : next;
+}
 
 export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((set, get) => ({
     data: initialData,
@@ -184,11 +209,15 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
                 state.data.clips.filter(c => c.assetId === id).map(c => c.id)
             );
 
+            const assets = state.data.assets.filter(a => a.id !== id);
+            const remaining = state.data.clips.filter(c => c.assetId !== id);
+            const touchesRow = state.data.clips.some(c => c.assetId === id && isVisualClip(c, state.data.assets));
+
             return {
                 data: {
                     ...state.data,
-                    assets: state.data.assets.filter(a => a.id !== id),
-                    clips: state.data.clips.filter(c => c.assetId !== id)
+                    assets,
+                    clips: state.data.settings.autoPack === true && touchesRow ? packClips(remaining, assets) : remaining
                 },
                 ui: {
                     ...state.ui,
@@ -213,34 +242,35 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
     updateClip: (id, updates) => {
         get()._saveHistory();
         set((state) => ({
-            data: {
-                ...state.data,
-                clips: state.data.clips.map(c => c.id === id ? { ...c, ...updates } : c)
-            }
+            data: { ...state.data, clips: applyClipUpdate(state, id, updates) }
         }));
     },
 
     updateClipTransient: (id, updates) => {
         set((state) => ({
-            data: {
-                ...state.data,
-                clips: state.data.clips.map(c => c.id === id ? { ...c, ...updates } : c)
-            }
+            data: { ...state.data, clips: applyClipUpdate(state, id, updates) }
         }));
     },
 
     removeClip: (id) => {
         get()._saveHistory();
-        set((state) => ({
-            data: {
-                ...state.data,
-                clips: state.data.clips.filter(c => c.id !== id)
-            },
-            ui: {
-                ...state.ui,
-                selectedClipId: state.ui.selectedClipId === id ? null : state.ui.selectedClipId
-            }
-        }));
+        set((state) => {
+            const target = state.data.clips.find(c => c.id === id);
+            const remaining = state.data.clips.filter(c => c.id !== id);
+            return {
+                data: {
+                    ...state.data,
+                    // Ripple: the clips after a deleted one close the gap.
+                    clips: state.data.settings.autoPack === true && target && isVisualClip(target, state.data.assets)
+                        ? packClips(remaining, state.data.assets)
+                        : remaining
+                },
+                ui: {
+                    ...state.ui,
+                    selectedClipId: state.ui.selectedClipId === id ? null : state.ui.selectedClipId
+                }
+            };
+        });
     },
 
     setClips: (clips) => {
@@ -251,6 +281,54 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
                 clips
             }
         }));
+    },
+
+    insertClipAt: (clip, index) => {
+        const { clips, assets } = get().data;
+        const row = visualRow(clips, assets).map(c => c.id);
+        const slot = Math.max(0, Math.min(index, row.length));
+        const asset = assets.find(a => a.id === clip.assetId);
+        const prevId = row[slot - 1];
+        const prevAsset = prevId ? assets.find(a => a.id === clips.find(c => c.id === prevId)?.assetId) : undefined;
+        const placed: Clip = {
+            ...clip,
+            transitionType: defaultTransitionFor(prevAsset, asset),
+            transitionDurationMs: DEFAULT_OVERLAP_MS
+        };
+        row.splice(slot, 0, placed.id);
+        get()._saveHistory();
+        set((state) => ({
+            data: { ...state.data, clips: packClips([...state.data.clips, placed], state.data.assets, { order: row }) }
+        }));
+    },
+
+    moveClipToIndex: (id, index) => {
+        const { clips, assets } = get().data;
+        const row = visualRow(clips, assets).map(c => c.id);
+        if (!row.includes(id)) return;
+        const others = row.filter(x => x !== id);
+        others.splice(Math.max(0, Math.min(index, others.length)), 0, id);
+        if (others.every((x, i) => x === row[i])) return; // back in its own slot: nothing to do
+        get()._saveHistory();
+        set((state) => ({
+            data: { ...state.data, clips: packClips(state.data.clips, state.data.assets, { order: others }) }
+        }));
+    },
+
+    // The toggle lives in settings, so it is part of the undo history: one step per switch,
+    // and undo / redo bring back the toggle together with the positions.
+    setAutoPack: (on) => {
+        const state = get();
+        if (on === (state.data.settings.autoPack === true)) return;
+        if (!on) {
+            get()._saveHistory();
+            set((s) => ({ data: { ...s.data, settings: { ...s.data.settings, autoPack: false } } }));
+            return;
+        }
+        // Switching ON re-packs what was arranged freely, in the same step.
+        const packed = packClips(state.data.clips, state.data.assets, { adopt: true });
+        get()._saveHistory();
+        set((s) => ({ data: { ...s.data, settings: { ...s.data.settings, autoPack: true }, clips: packed } }));
     },
 
     // UI Actions (do not trigger history)

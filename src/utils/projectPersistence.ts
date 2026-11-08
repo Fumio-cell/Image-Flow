@@ -38,7 +38,9 @@ export const loadProject = async (file: File) => {
 
         useProjectStore.setState(s => ({
             data: {
-                settings: data.settings,
+                // Files saved before Auto-pack existed have no flag: they load as free (false), so
+                // opening an old, freely arranged project never re-packs it.
+                settings: { ...data.settings, autoPack: data.settings.autoPack === true },
                 clips: data.clips,
                 assets: data.assets // missing File and ObjectUrls (user needs to re-import or they remain black blanks)
             },

@@ -8,6 +8,7 @@ import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/br
 import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
 import { getSourceTimeSec } from '../utils/videoTiming';
 import { findPrevVisualClip, type PrevLookupAsset } from '../utils/prevVisualClip';
+import { isVisualClip } from '../utils/packClips';
 import { DEMO_MODE, DEMO_MAX_SECONDS } from '../config';
 
 export interface VideoAssetMeta {
@@ -130,8 +131,13 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
     const ctx = canvas.getContext('2d')!;
     console.log('[Worker] OffscreenCanvas created');
 
+    // The video ends where the last VISUAL clip ends. A longer audio clip is cut
+    // there; a shorter one leaves silence (the audio track is padded below).
+    // With no visual clip at all (an audio-only project) the length is the largest
+    // end over all clips, as it always was.
+    const visualClips = clips.filter(c => isVisualClip(c, lookupAssets));
     let maxDuration = 0;
-    clips.forEach(c => {
+    (visualClips.length > 0 ? visualClips : clips).forEach(c => {
         const end = c.startTimeMs + c.durationMs;
         if (end > maxDuration) maxDuration = end;
     });
@@ -153,10 +159,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
     // AudioData blocks we feed it are — count in encoder frames, not input blocks.
     const AAC_FRAME_SAMPLES = 1024;
     const expectedAudioChunks = hasAudio
-        ? Math.ceil(
-            Math.min(audio!.totalFrames, Math.ceil((maxDuration / 1000) * audio!.sampleRate))
-            / AAC_FRAME_SAMPLES
-          ) + 64
+        ? Math.ceil(Math.ceil((maxDuration / 1000) * audio!.sampleRate) / AAC_FRAME_SAMPLES) + 64
         : undefined;
 
     let writableStream: FileSystemWritableFileStream | null = null;
@@ -210,8 +213,15 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
         const timeStep = 1000 / settings.fps;
         let currentTimeMs = 0;
         let frameCount = 0;
+        // Frame i shows time i * timeStep, so the video holds ceil(length * fps / 1000) frames:
+        // 7000 ms at 30 fps is 210 frames (0 .. 6966.7 ms). The old `<=` loop also encoded
+        // a frame AT 7000 ms, where no clip is active, so every export ended on one black frame.
+        // Integer math on purpose: dividing by timeStep (1000 / fps, e.g. 41.666..7 at 24 fps)
+        // can land just above a whole number and add that black frame back.
+        const totalVideoFrames = Math.ceil(maxDuration * settings.fps / 1000);
 
-        while (currentTimeMs <= maxDuration) { // <= to get the last frame
+        while (frameCount < totalVideoFrames) {
+            currentTimeMs = frameCount * timeStep;
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, width, height);
 
@@ -431,11 +441,10 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                 await new Promise(r => setTimeout(r, 10));
             }
 
-            currentTimeMs += timeStep;
             frameCount++;
 
             if (frameCount % 30 === 0) {
-                self.postMessage({ type: 'progress', progress: currentTimeMs / maxDuration });
+                self.postMessage({ type: 'progress', progress: frameCount / totalVideoFrames });
             }
         }
 
@@ -445,13 +454,10 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
 
         if (hasAudio) {
             console.log('[Worker] Encoding audio track...');
-            const { numberOfChannels, sampleRate, totalFrames: audioLength } = audio!;
-            // Truncate to the video's length — audio outlasting the picture
-            // would just play over a frozen/absent final frame.
-            const totalFrames = Math.min(
-                audioLength,
-                Math.floor((maxDuration / 1000) * sampleRate)
-            );
+            const { numberOfChannels, sampleRate } = audio!;
+            // Exactly the video's length: audio outlasting the picture is cut, and audio
+            // that ends early is followed by silence (the mixer returns zeros past its end).
+            const totalFrames = Math.floor((maxDuration / 1000) * sampleRate);
 
             if (totalFrames > 0) {
                 let audioEncoderError: Error | null = null;

@@ -13,6 +13,8 @@ export const TimelineContainer: React.FC = () => {
 
     const clips = useProjectStore(s => s.data.clips);
     const assets = useProjectStore(s => s.data.assets);
+    const autoPack = useProjectStore(s => s.data.settings.autoPack === true);
+    const setAutoPack = useProjectStore(s => s.setAutoPack);
 
     const tracksRef = useRef<HTMLDivElement>(null);
 
@@ -53,17 +55,17 @@ export const TimelineContainer: React.FC = () => {
         setZoomScale(Math.max(0.005, Math.min(1.0, newScale)));
     };
 
-    // Scrub handler — accounts for scroll offset
+    // Scrub handler. Time is measured from the lane's own left edge (its rect already
+    // moves with the scroll). The scroll container's edge is 60px further left, because
+    // it also holds the sticky label column, which put the playhead ~600ms off.
     const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
-        const container = tracksRef.current;
-        if (!container) return;
-        const rect = container.getBoundingClientRect();
-        const clickX = e.clientX - rect.left + container.scrollLeft;
-        setPlayheadMs(Math.max(0, clickX / zoomScale));
+        const lane = e.currentTarget;
+        const timeAt = (clientX: number) =>
+            Math.max(0, (clientX - lane.getBoundingClientRect().left) / zoomScale);
+        setPlayheadMs(timeAt(e.clientX));
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const moveX = moveEvent.clientX - rect.left + container.scrollLeft;
-            setPlayheadMs(Math.max(0, moveX / zoomScale));
+            setPlayheadMs(timeAt(moveEvent.clientX));
         };
         const handleMouseUp = () => {
             window.removeEventListener('mousemove', handleMouseMove);
@@ -137,8 +139,25 @@ export const TimelineContainer: React.FC = () => {
                     {generateTicks()}
                 </div>
 
-                {/* Zoom controls */}
+                {/* Auto-pack + zoom controls */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingRight: '8px', flexShrink: 0 }}>
+                    <label
+                        title="Keep clips in a row with automatic transitions"
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '8px', fontSize: '11px', color: 'var(--text-main)', cursor: 'pointer' }}
+                    >
+                        <input
+                            type="checkbox"
+                            id="autoPackToggle"
+                            checked={autoPack}
+                            onChange={(e) => {
+                                setAutoPack(e.target.checked);
+                                // Give focus back to the page: a focused checkbox swallows Cmd+Z, and
+                                // switching Auto-pack on is an undoable step.
+                                e.target.blur();
+                            }}
+                        />
+                        Auto-pack
+                    </label>
                     <button
                         className="btn btn-icon"
                         onClick={handleZoomOut}
