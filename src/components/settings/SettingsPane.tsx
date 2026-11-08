@@ -1,76 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { findPrevVisualClip } from '../../utils/prevVisualClip';
-
-/** A number input that only commits on blur or Enter — avoids undo-per-keystroke */
-const NumberField: React.FC<{
-    label: string;
-    value: number;
-    min?: number;
-    onChange: (v: number) => void;
-}> = ({ label, value, min, onChange }) => {
-    const [local, setLocal] = useState(String(value));
-
-    // Sync from store when the external value changes (e.g. drag on timeline)
-    useEffect(() => {
-        setLocal(String(value));
-    }, [value]);
-
-    const commit = () => {
-        let n = parseInt(local, 10);
-        if (isNaN(n)) n = value; // revert
-        if (min !== undefined && n < min) n = min;
-        onChange(n);
-        setLocal(String(n));
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
-            <input
-                type="number"
-                value={local}
-                onChange={(e) => setLocal(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
-            />
-        </div>
-    );
-};
-
-/** A number input in SECONDS (step 0.1) that edits a millisecond value; commits on blur or Enter. */
-const SecondsField: React.FC<{
-    label: string;
-    valueMs: number;
-    onChange: (ms: number) => void;
-}> = ({ label, valueMs, onChange }) => {
-    const [local, setLocal] = useState(String(valueMs / 1000));
-
-    useEffect(() => {
-        setLocal(String(valueMs / 1000));
-    }, [valueMs]);
-
-    const commit = () => {
-        const sec = parseFloat(local);
-        if (isNaN(sec)) { setLocal(String(valueMs / 1000)); return; } // revert
-        onChange(Math.max(0, Math.round(sec * 1000)));
-    };
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
-            <input
-                type="number"
-                min={0}
-                step={0.1}
-                value={local}
-                onChange={(e) => setLocal(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
-            />
-        </div>
-    );
-};
+import { glitchUntouched, resolveGlitchParams } from '../../utils/glitchParams';
+import { SecondsField } from '../timeline/SecondsField';
+import { formatSecondsLabel } from '../timeline/timeFormat';
 
 const RangeField: React.FC<{
     label: string;
@@ -164,6 +97,12 @@ export const SettingsPane: React.FC = () => {
     const prevEnd = prevClip ? prevClip.startTimeMs + prevClip.durationMs : 0;
     const overlapMs = prevClip ? Math.max(0, prevEnd - clip.startTimeMs) : 0;
     const packedVisual = autoPack && clipAsset?.type !== 'audio';
+    // The sliders show what Glitch really runs with. The first slider you move stores all three, so
+    // the other two keep the values you were looking at instead of dropping to 0.
+    const glitch = resolveGlitchParams(clip);
+    const glitchSeed = glitchUntouched(clip)
+        ? { glitchAmount: glitch.amount, glitchIntensity: glitch.intensity, glitchDisplacement: glitch.displacement }
+        : {};
 
     return (
         <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '0.75rem' }}>
@@ -175,30 +114,28 @@ export const SettingsPane: React.FC = () => {
                     title="Start is set automatically in Auto-pack mode."
                     style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', opacity: 0.45, cursor: 'not-allowed' }}
                 >
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', cursor: 'not-allowed' }}>Start Time (ms)</label>
-                    <input type="number" value={clip.startTimeMs} disabled readOnly style={{ cursor: 'not-allowed' }} />
+                    <SecondsField label="Start Time (s)" valueMs={clip.startTimeMs} disabled onCommit={() => { /* derived */ }} />
                 </div>
             ) : (
-                <NumberField
-                    label="Start Time (ms)"
-                    value={clip.startTimeMs}
-                    min={0}
-                    onChange={(v) => updateClip(clip.id, { startTimeMs: v })}
+                <SecondsField
+                    label="Start Time (s)"
+                    valueMs={clip.startTimeMs}
+                    onCommit={(ms) => updateClip(clip.id, { startTimeMs: ms })}
                 />
             )}
 
-            <NumberField
-                label="Duration (ms)"
-                value={clip.durationMs}
-                min={100}
-                onChange={(v) => updateClip(clip.id, { durationMs: v })}
+            <SecondsField
+                label="Duration (s)"
+                valueMs={clip.durationMs}
+                minMs={100}
+                onCommit={(ms) => updateClip(clip.id, { durationMs: ms })}
             />
 
             {packedVisual && prevClip && (
                 <SecondsField
                     label="Overlap with previous (s)"
                     valueMs={clip.transitionDurationMs}
-                    onChange={(ms) => updateClip(clip.id, { transitionDurationMs: ms })}
+                    onCommit={(ms) => updateClip(clip.id, { transitionDurationMs: ms })}
                 />
             )}
 
@@ -271,7 +208,7 @@ export const SettingsPane: React.FC = () => {
                         </label>
                     ) : overlapMs > 0 ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-accent)' }}>
-                            Overlap: {overlapMs}ms
+                            Overlap: {formatSecondsLabel(overlapMs)}
                         </label>
                     ) : (
                         <label style={{ fontSize: '10px', color: 'var(--text-danger)' }}>
@@ -287,7 +224,7 @@ export const SettingsPane: React.FC = () => {
                                 updateClip(clip.id, { startTimeMs: newStart });
                             }}
                         >
-                            Auto Overlap (500ms)
+                            Auto Overlap (0.5 s)
                         </button>
                     )}
                 </div>
@@ -394,24 +331,24 @@ export const SettingsPane: React.FC = () => {
                     <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
                         <RangeField
                             label="Glitch Amount"
-                            value={clip.glitchAmount !== undefined ? clip.glitchAmount : 0.0}
+                            value={glitch.amount}
                             min={0.0}
                             max={1.0}
-                            onChange={(v) => updateClip(clip.id, { glitchAmount: v })}
+                            onChange={(v) => updateClip(clip.id, { ...glitchSeed, glitchAmount: v })}
                         />
                         <RangeField
                             label="Glitch Intensity"
-                            value={clip.glitchIntensity !== undefined ? clip.glitchIntensity : 0.0}
+                            value={glitch.intensity}
                             min={0.0}
                             max={1.0}
-                            onChange={(v) => updateClip(clip.id, { glitchIntensity: v })}
+                            onChange={(v) => updateClip(clip.id, { ...glitchSeed, glitchIntensity: v })}
                         />
                         <RangeField
                             label="Glitch Displacement (Tear)"
-                            value={clip.glitchDisplacement !== undefined ? clip.glitchDisplacement : 0.0}
+                            value={glitch.displacement}
                             min={0.0}
                             max={1.0}
-                            onChange={(v) => updateClip(clip.id, { glitchDisplacement: v })}
+                            onChange={(v) => updateClip(clip.id, { ...glitchSeed, glitchDisplacement: v })}
                         />
                     </div>
                 </div>

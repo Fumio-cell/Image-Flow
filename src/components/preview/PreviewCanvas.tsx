@@ -11,6 +11,7 @@ import { DeltaFlowFieldCache } from '../../utils/deltaFlowFieldCache';
 import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../../utils/breathingMorphRenderer';
 import { BreathingMorphFieldCache } from '../../utils/breathingMorphFieldCache';
 import { findPrevVisualClip } from '../../utils/prevVisualClip';
+import { resolveGlitchParams } from '../../utils/glitchParams';
 import type { Clip } from '../../types';
 
 /** One drawable layer for the current frame — an image or a live video element. */
@@ -315,10 +316,11 @@ export const PreviewCanvas: React.FC = () => {
                 }
 
                 // Glitch transition: fires only during the overlap with the previous clip
-                if (clip.transitionType === 'glitch' && clip.glitchAmount && clip.glitchIntensity && overlapProgress !== null) {
-                    let finalAmount = clip.glitchAmount;
-                    let finalIntensity = clip.glitchIntensity;
-                    let finalDisplace = clip.glitchDisplacement || 0.0;
+                const glitch = resolveGlitchParams(clip);
+                if (clip.transitionType === 'glitch' && glitch.amount && glitch.intensity && overlapProgress !== null) {
+                    let finalAmount = glitch.amount;
+                    let finalIntensity = glitch.intensity;
+                    let finalDisplace = glitch.displacement;
                     if (clip.audioReactive && currentAudioLevel > 0.1) {
                         finalAmount = Math.min(1.0, finalAmount + currentAudioLevel * 0.5);
                         finalIntensity = Math.min(1.0, finalIntensity + currentAudioLevel * 0.8);

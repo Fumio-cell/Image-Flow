@@ -9,6 +9,7 @@ import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
 import { getSourceTimeSec } from '../utils/videoTiming';
 import { findPrevVisualClip, type PrevLookupAsset } from '../utils/prevVisualClip';
 import { isVisualClip } from '../utils/packClips';
+import { resolveGlitchParams } from '../utils/glitchParams';
 import { DEMO_MODE, DEMO_MAX_SECONDS } from '../config';
 
 export interface VideoAssetMeta {
@@ -416,11 +417,12 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                 }
 
                 // Glitch transition: fires only during the overlap with the previous clip
-                if (clip.transitionType === 'glitch' && clip.glitchAmount && clip.glitchIntensity && overlapProgress !== null) {
+                const glitch = resolveGlitchParams(clip);
+                if (clip.transitionType === 'glitch' && glitch.amount && glitch.intensity && overlapProgress !== null) {
                     applyGlitch(ctx as any, dx, dy, dw, dh, {
-                        amount: clip.glitchAmount,
-                        intensity: clip.glitchIntensity,
-                        displacement: clip.glitchDisplacement || 0.0,
+                        amount: glitch.amount,
+                        intensity: glitch.intensity,
+                        displacement: glitch.displacement,
                         seed: currentTimeMs
                     });
                 }

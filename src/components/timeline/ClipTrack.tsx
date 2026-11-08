@@ -2,6 +2,8 @@ import React, { useRef } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import type { Clip } from '../../types';
 import { insertionIndex, insertionMarkerMs } from '../../utils/packClips';
+import { JunctionChip } from './JunctionChip';
+import { formatSecondsLabel } from './timeFormat';
 
 const HANDLE_WIDTH = 8; // px — the grabbable area on each edge
 const MIN_DURATION_MS = 100;
@@ -27,6 +29,8 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
     const moveClipToIndex = useProjectStore(s => s.moveClipToIndex);
     // Auto-pack governs the visual lane only; the audio lane stays free-form.
     const packed = autoPack && kind === 'visual';
+    // This lane's own clips (the visual lane holds everything that is not audio).
+    const laneOwnClipCount = clips.filter(c => (kind === 'audio') === (assets.find(a => a.id === c.assetId)?.type === 'audio')).length;
 
     // Reorder drag state: the clip being dragged and where its insertion marker sits (timeline ms).
     const [draggingId, setDraggingId] = React.useState<string | null>(null);
@@ -114,14 +118,8 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
         setSelectedClipId(newClip.id);
     };
 
-    // Format ms to human-readable string
-    const formatMs = (ms: number) => {
-        const s = ms / 1000;
-        if (s < 60) return `${s.toFixed(1)}s`;
-        const m = Math.floor(s / 60);
-        const rem = (s % 60).toFixed(0);
-        return `${m}:${rem.padStart(2, '0')}`;
-    };
+    // Time shown in seconds with one decimal (the data stays in milliseconds)
+    const formatMs = formatSecondsLabel;
 
     return (
         <div
@@ -146,7 +144,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                     return (kind === 'audio') === isAudio;
                 });
                 const sortedClips = [...laneClips].sort((a, b) => a.startTimeMs - b.startTimeMs);
-                return sortedClips.map((clip, index) => {
+                const clipElements = sortedClips.map((clip, index) => {
                     const asset = assets.find(a => a.id === clip.assetId);
                     const left = clip.startTimeMs * zoomScale;
                     const width = clip.durationMs * zoomScale;
@@ -358,7 +356,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
 
                             {/* Dissolve overlap indicator */}
                             {clip.transitionType === 'dissolve' && overlapMs > 0 && (
-                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${overlapMs * zoomScale}px`, backgroundColor: 'rgba(59,130,246,0.25)', borderRight: '1px dashed rgba(59,130,246,0.5)' }} title={`Dissolve: ${overlapMs}ms`} />
+                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${overlapMs * zoomScale}px`, backgroundColor: 'rgba(59,130,246,0.25)', borderRight: '1px dashed rgba(59,130,246,0.5)' }} title={`Dissolve: ${formatSecondsLabel(overlapMs)}`} />
                             )}
 
                             {/* LEFT resize handle. In Auto-pack the start is derived, so it is shown disabled. */}
@@ -403,6 +401,13 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                         </div>
                     );
                 });
+                // Auto-pack: a chip on every junction (clip i-1 -> clip i) to see and change the transition there.
+                const chips = packed
+                    ? sortedClips.map((clip, index) => index === 0 ? null : (
+                        <JunctionChip key={`junction-${clip.id}`} clip={clip} prev={sortedClips[index - 1]} number={index} zoomScale={zoomScale} />
+                    ))
+                    : null;
+                return <>{clipElements}{chips}</>;
             })()}
 
             {markerMs !== null && (
@@ -431,7 +436,10 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                     {kind === 'audio' ? 'DRAG AUDIO HERE' : 'DRAG IMAGES OR VIDEO HERE'}
                     <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.7 }}>DROP FROM ASSETS PANE ON THE LEFT</div>
                 </div>
-            ) : (
+            ) : null}
+
+            {/* Faint hint: only in an EMPTY VISUAL lane, judged by the lane's own clips, never the audio lane. */}
+            {kind === 'visual' && laneOwnClipCount === 0 && (
                 <div style={{ position: 'absolute', top: '8px', left: '12px', color: 'rgba(255,255,255,0.05)', fontSize: '32px', fontWeight: 'bold', pointerEvents: 'none' }}>
                     CLIPS
                 </div>
