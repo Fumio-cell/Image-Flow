@@ -1,9 +1,11 @@
 import React, { useRef } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import type { Clip } from '../../types';
+import { insertionIndex, insertionMarkerMs } from '../../utils/packClips';
 
 const HANDLE_WIDTH = 8; // px — the grabbable area on each edge
 const MIN_DURATION_MS = 100;
+const DRAG_THRESHOLD_PX = 4; // a press that moves less than this is a click, not a reorder
 
 interface ClipTrackProps {
     /** Which lane this is. Both lanes share the same move/trim behaviour. */
@@ -19,6 +21,15 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
     const saveHistory = useProjectStore(s => s.saveHistory);
     const setSelectedClipId = useProjectStore(s => s.setSelectedClipId);
     const selectedClipId = useProjectStore(s => s.ui.selectedClipId);
+    const autoPack = useProjectStore(s => s.ui.autoPack);
+    const insertClipAt = useProjectStore(s => s.insertClipAt);
+    const moveClipToIndex = useProjectStore(s => s.moveClipToIndex);
+    // Auto-pack governs the visual lane only; the audio lane stays free-form.
+    const packed = autoPack && kind === 'visual';
+
+    // Reorder drag state: the clip being dragged and where its insertion marker sits (timeline ms).
+    const [draggingId, setDraggingId] = React.useState<string | null>(null);
+    const [markerMs, setMarkerMs] = React.useState<number | null>(null);
 
     const trackRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +69,29 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
         const durationMs = (dropped.type === 'video' || dropped.type === 'audio') && dropped.duration
             ? Math.round(dropped.duration)
             : 3000;
+
+        // Auto-pack: a visual asset goes into the nearest slot of the row (not to the mouse x)
+        // and the row is re-packed. Audio keeps its free placement below.
+        if (autoPack && !droppedIsAudio) {
+            const slotClip: Clip = {
+                id: crypto.randomUUID(),
+                assetId,
+                startTimeMs: 0,
+                durationMs,
+                sourceInMs: 0,
+                volume: 1,
+                muted: false,
+                transitionType: 'cut',   // replaced by the store with the junction's default
+                transitionDurationMs: 0,
+                fitMode: 'fit',
+                motionType: 'none',
+                motionIntensity: 0.1,
+                motionSpeed: 0.5
+            };
+            insertClipAt(slotClip, insertionIndex(clips, assets, startTimeMs));
+            setSelectedClipId(slotClip.id);
+            return;
+        }
 
         const newClip: Clip = {
             id: crypto.randomUUID(),
@@ -124,6 +158,38 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                         overlapMs = Math.max(0, prevEnd - clip.startTimeMs);
                     }
 
+                    // --- REORDER handler (Auto-pack, visual lane): drag to a slot, marker shows where ---
+                    const handlePackedMouseDown = (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        setSelectedClipId(clip.id);
+
+                        const startX = e.clientX;
+                        let dragging = false;
+                        let slot = -1;
+
+                        const handleMouseMove = (moveEvent: MouseEvent) => {
+                            if (!dragging && Math.abs(moveEvent.clientX - startX) < DRAG_THRESHOLD_PX) return;
+                            dragging = true;
+                            setDraggingId(clip.id);
+                            const { clips: cs, assets: as } = useProjectStore.getState().data;
+                            const rect = trackRef.current!.getBoundingClientRect();
+                            const mouseMs = (moveEvent.clientX - rect.left) / zoomScale;
+                            slot = insertionIndex(cs, as, mouseMs, clip.id);
+                            setMarkerMs(insertionMarkerMs(cs, as, slot, clip.id));
+                        };
+
+                        const handleMouseUp = () => {
+                            window.removeEventListener('mousemove', handleMouseMove);
+                            window.removeEventListener('mouseup', handleMouseUp);
+                            if (dragging && slot >= 0) moveClipToIndex(clip.id, slot); // one undo step; own slot = no-op
+                            setDraggingId(null);
+                            setMarkerMs(null);
+                        };
+
+                        window.addEventListener('mousemove', handleMouseMove);
+                        window.addEventListener('mouseup', handleMouseUp);
+                    };
+
                     // --- MOVE handler (middle area) ---
                     const handleClipMouseDown = (e: React.MouseEvent) => {
                         e.stopPropagation();
@@ -188,17 +254,24 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
 
                         const startX = e.clientX;
                         const originalDuration = clip.durationMs;
+                        let historySaved = false;
 
                         const handleMouseMove = (moveEvent: MouseEvent) => {
                             const deltaX = moveEvent.clientX - startX;
                             const deltaMs = deltaX / zoomScale;
                             let newDuration = Math.round(originalDuration + deltaMs);
                             if (newDuration < MIN_DURATION_MS) newDuration = MIN_DURATION_MS;
+                            if (packed) {
+                                // Auto-pack: the row ripples live. Snapshot BEFORE the first change so the
+                                // whole drag is one undo step that restores the exact earlier positions.
+                                if (newDuration === useProjectStore.getState().data.clips.find(c => c.id === clip.id)?.durationMs) return;
+                                if (!historySaved) { saveHistory(); historySaved = true; }
+                            }
                             updateClipTransient(clip.id, { durationMs: newDuration });
                         };
 
                         const handleMouseUp = () => {
-                            saveHistory();
+                            if (!packed) saveHistory();
                             window.removeEventListener('mousemove', handleMouseMove);
                             window.removeEventListener('mouseup', handleMouseUp);
                         };
@@ -210,8 +283,11 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                     return (
                         <div
                             key={clip.id}
-                            onMouseDown={handleClipMouseDown}
+                            onMouseDown={packed ? handlePackedMouseDown : handleClipMouseDown}
                             style={{
+                                opacity: draggingId === clip.id ? 0.45 : 1,
+                                // Auto-pack overlaps neighbours; a selected clip rises so its end handle can be grabbed.
+                                zIndex: packed && isSelected ? 3 : undefined,
                                 position: 'absolute',
                                 top: '4px',
                                 left: `${left}px`,
@@ -284,8 +360,8 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${overlapMs * zoomScale}px`, backgroundColor: 'rgba(59,130,246,0.25)', borderRight: '1px dashed rgba(59,130,246,0.5)' }} title={`Dissolve: ${overlapMs}ms`} />
                             )}
 
-                            {/* LEFT resize handle */}
-                            <div
+                            {/* LEFT resize handle (not in Auto-pack: starts are derived) */}
+                            {!packed && <div
                                 onMouseDown={handleLeftEdge}
                                 style={{
                                     position: 'absolute',
@@ -300,7 +376,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                     borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
                                     zIndex: 2
                                 }}
-                            />
+                            />}
 
                             {/* RIGHT resize handle */}
                             <div
@@ -323,6 +399,13 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                     );
                 });
             })()}
+
+            {markerMs !== null && (
+                <div style={{
+                    position: 'absolute', top: 0, bottom: 0, left: `${markerMs * zoomScale - 1.5}px`, width: '3px',
+                    backgroundColor: '#7c5cfc', boxShadow: '0 0 6px #7c5cfc', zIndex: 15, pointerEvents: 'none'
+                }} />
+            )}
 
             {clips.length === 0 ? (
                 <div style={{ 
