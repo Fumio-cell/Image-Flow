@@ -213,11 +213,12 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
         const timeStep = 1000 / settings.fps;
         let currentTimeMs = 0;
         let frameCount = 0;
-        // Frame i shows time i * timeStep, so the video holds ceil(length / timeStep) frames:
+        // Frame i shows time i * timeStep, so the video holds ceil(length * fps / 1000) frames:
         // 7000 ms at 30 fps is 210 frames (0 .. 6966.7 ms). The old `<=` loop also encoded
         // a frame AT 7000 ms, where no clip is active, so every export ended on one black frame.
-        // The small epsilon keeps float noise from adding a frame to an exact multiple.
-        const totalVideoFrames = Math.ceil(maxDuration / timeStep - 1e-6);
+        // Integer math on purpose: dividing by timeStep (1000 / fps, e.g. 41.666..7 at 24 fps)
+        // can land just above a whole number and add that black frame back.
+        const totalVideoFrames = Math.ceil(maxDuration * settings.fps / 1000);
 
         while (frameCount < totalVideoFrames) {
             currentTimeMs = frameCount * timeStep;
