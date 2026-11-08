@@ -103,7 +103,7 @@ export const SettingsPane: React.FC = () => {
     const selectedClipId = useProjectStore((s) => s.ui.selectedClipId);
     const clips = useProjectStore((s) => s.data.clips);
     const assets = useProjectStore((s) => s.data.assets);
-    const autoPack = useProjectStore((s) => s.ui.autoPack);
+    const autoPack = useProjectStore((s) => s.data.settings.autoPack === true);
     const clip = clips.find(c => c.id === selectedClipId);
     const clipAsset = clip ? assets.find(a => a.id === clip.assetId) : undefined;
     // Delta Flow and Breathing Morph build a displacement field from a fixed
@@ -171,9 +171,12 @@ export const SettingsPane: React.FC = () => {
 
             {packedVisual ? (
                 // Auto-pack derives the start from the clips before it.
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Start Time (ms) — set by Auto-pack</label>
-                    <input type="number" value={clip.startTimeMs} disabled readOnly />
+                <div
+                    title="Start is set automatically in Auto-pack mode."
+                    style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', opacity: 0.45, cursor: 'not-allowed' }}
+                >
+                    <label style={{ fontSize: '12px', color: 'var(--text-muted)', cursor: 'not-allowed' }}>Start Time (ms)</label>
+                    <input type="number" value={clip.startTimeMs} disabled readOnly style={{ cursor: 'not-allowed' }} />
                 </div>
             ) : (
                 <NumberField
@@ -264,7 +267,7 @@ export const SettingsPane: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.4rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
                     {!prevClip ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            Transition not available for the first clip.
+                            The transition applies when this clip is not first.
                         </label>
                     ) : overlapMs > 0 ? (
                         <label style={{ fontSize: '10px', color: 'var(--text-accent)' }}>

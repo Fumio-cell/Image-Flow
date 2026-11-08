@@ -106,16 +106,6 @@ export function packClips(clips: readonly Clip[], assets: readonly AssetLike[], 
     return clips.map(c => packed.get(c.id) ?? c);
 }
 
-/** True when two clip lists have the same visual layout (positions, lengths, transitions). */
-export function sameLayout(a: readonly Clip[], b: readonly Clip[]): boolean {
-    if (a.length !== b.length) return false;
-    return a.every((c, i) => {
-        const d = b[i];
-        return c.id === d.id && c.startTimeMs === d.startTimeMs && c.durationMs === d.durationMs &&
-            c.transitionType === d.transitionType && c.transitionDurationMs === d.transitionDurationMs;
-    });
-}
-
 /** The visual row in start-time order, optionally without one clip (the one being dragged). */
 export function visualRow(clips: readonly Clip[], assets: readonly AssetLike[], excludeId?: string): Clip[] {
     return clips

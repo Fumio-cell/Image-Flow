@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ProjectData, AssetItem, Clip, ProjectSettings } from '../types';
 import {
     DEFAULT_OVERLAP_MS, PACK_TRIGGER_KEYS, defaultTransitionFor, isVisualClip,
-    normalizeJunctionUpdate, packClips, sameLayout, visualRow,
+    normalizeJunctionUpdate, packClips, visualRow,
 } from '../utils/packClips';
 
 interface UIState {
@@ -11,7 +11,6 @@ interface UIState {
     isPlaying: boolean;
     previewQuality: 'Draft' | 'Full';
     zoomScale: number; // Pixels per ms
-    autoPack: boolean; // Visual lane is a packed row: starts derived, junctions overlap automatically
 }
 
 interface ProjectStoreState {
@@ -65,6 +64,7 @@ const initialData: ProjectData = {
     settings: {
         resolution: '1920x1080',
         fps: 30,
+        autoPack: true, // a new project starts as a packed row
     },
     assets: [],
     clips: []
@@ -75,8 +75,7 @@ const initialUI: UIState = {
     playheadMs: 0,
     isPlaying: false,
     previewQuality: 'Full',
-    zoomScale: 0.1, // 100px = 1 second
-    autoPack: true
+    zoomScale: 0.1 // 100px = 1 second
 };
 
 const MAX_HISTORY = 30;
@@ -89,7 +88,7 @@ const MAX_HISTORY = 30;
 function applyClipUpdate(state: ProjectStoreState, id: string, updates: Partial<Clip>): Clip[] {
     const { clips, assets } = state.data;
     const target = clips.find(c => c.id === id);
-    const packing = state.ui.autoPack && !!target && isVisualClip(target, assets) &&
+    const packing = state.data.settings.autoPack === true && !!target && isVisualClip(target, assets) &&
         PACK_TRIGGER_KEYS.some(k => k in updates);
     const effective = packing ? normalizeJunctionUpdate(clips, assets, target!, updates) : updates;
     const next = clips.map(c => c.id === id ? { ...c, ...effective } : c);
@@ -218,7 +217,7 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
                 data: {
                     ...state.data,
                     assets,
-                    clips: state.ui.autoPack && touchesRow ? packClips(remaining, assets) : remaining
+                    clips: state.data.settings.autoPack === true && touchesRow ? packClips(remaining, assets) : remaining
                 },
                 ui: {
                     ...state.ui,
@@ -262,7 +261,7 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
                 data: {
                     ...state.data,
                     // Ripple: the clips after a deleted one close the gap.
-                    clips: state.ui.autoPack && target && isVisualClip(target, state.data.assets)
+                    clips: state.data.settings.autoPack === true && target && isVisualClip(target, state.data.assets)
                         ? packClips(remaining, state.data.assets)
                         : remaining
                 },
@@ -316,21 +315,20 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
         }));
     },
 
+    // The toggle lives in settings, so it is part of the undo history: one step per switch,
+    // and undo / redo bring back the toggle together with the positions.
     setAutoPack: (on) => {
         const state = get();
-        if (on === state.ui.autoPack) return;
+        if (on === (state.data.settings.autoPack === true)) return;
         if (!on) {
-            set({ ui: { ...state.ui, autoPack: false } });
+            get()._saveHistory();
+            set((s) => ({ data: { ...s.data, settings: { ...s.data.settings, autoPack: false } } }));
             return;
         }
-        // Switching ON: re-pack what was arranged freely, as one undo step.
+        // Switching ON re-packs what was arranged freely, in the same step.
         const packed = packClips(state.data.clips, state.data.assets, { adopt: true });
-        if (sameLayout(packed, state.data.clips)) {
-            set({ ui: { ...state.ui, autoPack: true } });
-            return;
-        }
         get()._saveHistory();
-        set((s) => ({ ui: { ...s.ui, autoPack: true }, data: { ...s.data, clips: packed } }));
+        set((s) => ({ data: { ...s.data, settings: { ...s.data.settings, autoPack: true }, clips: packed } }));
     },
 
     // UI Actions (do not trigger history)

@@ -13,7 +13,7 @@ export const TimelineContainer: React.FC = () => {
 
     const clips = useProjectStore(s => s.data.clips);
     const assets = useProjectStore(s => s.data.assets);
-    const autoPack = useProjectStore(s => s.ui.autoPack);
+    const autoPack = useProjectStore(s => s.data.settings.autoPack === true);
     const setAutoPack = useProjectStore(s => s.setAutoPack);
 
     const tracksRef = useRef<HTMLDivElement>(null);

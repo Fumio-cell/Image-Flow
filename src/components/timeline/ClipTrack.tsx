@@ -5,6 +5,7 @@ import { insertionIndex, insertionMarkerMs } from '../../utils/packClips';
 
 const HANDLE_WIDTH = 8; // px — the grabbable area on each edge
 const MIN_DURATION_MS = 100;
+const AUTO_START_TIP = 'Start is set automatically in Auto-pack mode.';
 const DRAG_THRESHOLD_PX = 4; // a press that moves less than this is a click, not a reorder
 
 interface ClipTrackProps {
@@ -21,7 +22,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
     const saveHistory = useProjectStore(s => s.saveHistory);
     const setSelectedClipId = useProjectStore(s => s.setSelectedClipId);
     const selectedClipId = useProjectStore(s => s.ui.selectedClipId);
-    const autoPack = useProjectStore(s => s.ui.autoPack);
+    const autoPack = useProjectStore(s => s.data.settings.autoPack === true);
     const insertClipAt = useProjectStore(s => s.insertClipAt);
     const moveClipToIndex = useProjectStore(s => s.moveClipToIndex);
     // Auto-pack governs the visual lane only; the audio lane stays free-form.
@@ -360,23 +361,27 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                 <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${overlapMs * zoomScale}px`, backgroundColor: 'rgba(59,130,246,0.25)', borderRight: '1px dashed rgba(59,130,246,0.5)' }} title={`Dissolve: ${overlapMs}ms`} />
                             )}
 
-                            {/* LEFT resize handle (not in Auto-pack: starts are derived) */}
-                            {!packed && <div
-                                onMouseDown={handleLeftEdge}
+                            {/* LEFT resize handle. In Auto-pack the start is derived, so it is shown disabled. */}
+                            <div
+                                onMouseDown={packed ? undefined : handleLeftEdge}
+                                title={packed ? AUTO_START_TIP : undefined}
                                 style={{
                                     position: 'absolute',
                                     left: 0,
                                     top: 0,
                                     bottom: 0,
                                     width: `${HANDLE_WIDTH}px`,
-                                    cursor: 'ew-resize',
-                                    background: isSelected
-                                        ? 'linear-gradient(to right, rgba(59,130,246,0.5), transparent)'
-                                        : 'linear-gradient(to right, rgba(255,255,255,0.15), transparent)',
+                                    cursor: packed ? 'not-allowed' : 'ew-resize',
+                                    opacity: packed ? 0.35 : 1,
+                                    background: packed
+                                        ? 'repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 3px, transparent 3px 6px)'
+                                        : isSelected
+                                            ? 'linear-gradient(to right, rgba(59,130,246,0.5), transparent)'
+                                            : 'linear-gradient(to right, rgba(255,255,255,0.15), transparent)',
                                     borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
                                     zIndex: 2
                                 }}
-                            />}
+                            />
 
                             {/* RIGHT resize handle */}
                             <div
