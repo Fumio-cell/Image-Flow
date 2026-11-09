@@ -1,6 +1,12 @@
 export type Resolution = '1280x720' | '1920x1080' | '1920x1920' | '3840x2160';
 export type FPS = 24 | 30;
 
+/** Music level over time: one value per hop, normalised to 0..1 (see utils/audioReaction). */
+export interface AudioEnvelope {
+    hopMs: number;
+    values: Float32Array;
+}
+
 export interface ProjectSettings {
     resolution: Resolution;
     fps: FPS;
@@ -17,7 +23,8 @@ export interface AssetItem {
     objectUrl: string;
     name: string;
     duration?: number; // Milliseconds. Audio and video.
-    peaks?: number[]; // Extracted waveform
+    peaks?: number[]; // Extracted waveform (drawing only)
+    envelope?: AudioEnvelope; // Audio only: windowed-RMS envelope for Music reaction. Not saved with the project.
     posterUrl?: string; // Video thumbnail (data URL)
     hasAudio?: boolean; // Video only: whether the file carries an audio track
     width?: number;  // Intrinsic pixel width (video)
@@ -45,6 +52,7 @@ export interface Clip {
     glitchAmount?: number;    // 0.0 to 1.0 (probability/frequency)
     glitchIntensity?: number; // 0.0 to 1.0 (magnitude)
     glitchDisplacement?: number; // 0.0 to 1.0 (horizontal tearing displacement)
+    musicReaction?: number;   // 0.0 to 1.0, how strongly this clip reacts to the music when Audio Reactive is on (default 0.5)
     audioReactive?: boolean;  // Enage VJ Mode (Audio reacts to zoom/glitch)
     deltaFlowSensitivity?: number;  // 0.0 to 1.0 (how broadly small differences react)
     deltaFlowStrength?: number;     // 0.0 to 1.0 (displacement magnitude)

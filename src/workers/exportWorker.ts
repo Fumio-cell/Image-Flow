@@ -8,9 +8,8 @@ import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../utils/br
 import { BreathingMorphFieldCache } from '../utils/breathingMorphFieldCache';
 import { getSourceTimeSec } from '../utils/videoTiming';
 import { findPrevVisualClip, type PrevLookupAsset } from '../utils/prevVisualClip';
-import { isVisualClip } from '../utils/packClips';
+import { exportLengthMs, exportFrameCount, exportFrameTimeMs, clipReaction, reactDelta, reactBreathing, reactGlitch, REACTION } from '../utils/audioReaction';
 import { resolveGlitchParams } from '../utils/glitchParams';
-import { DEMO_MODE, DEMO_MAX_SECONDS } from '../config';
 
 export interface VideoAssetMeta {
     assetId: string;
@@ -29,6 +28,8 @@ export interface ExportWorkerData {
      * System Access API).
      */
     fileHandle?: FileSystemFileHandle;
+    /** Music level per video frame (frame i = exportFrameTimeMs(i, fps)), computed on the main thread. Absent when no clip reacts. */
+    audioLevels?: Float32Array;
     imageBitmaps: { assetId: string, bitmap: ImageBitmap }[];
     videoAssets?: VideoAssetMeta[];
     audio?: {
@@ -109,7 +110,8 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
         });
         return;
     }
-    const { settings, clips, imageBitmaps, videoAssets, audio, fileHandle } = job;
+    const { settings, clips, imageBitmaps, videoAssets, audio, fileHandle, audioLevels } = job;
+    let musicLevelMisses = 0; // reads past the end of audioLevels (must stay 0; such a read gives level 0)
     const videoMetaById = new Map((videoAssets ?? []).map(v => [v.assetId, v]));
     // The worker is only handed image and video assets, so a clip pointing at
     // anything else is an audio clip. Give the previous-clip lookup that view.
@@ -136,13 +138,8 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
     // there; a shorter one leaves silence (the audio track is padded below).
     // With no visual clip at all (an audio-only project) the length is the largest
     // end over all clips, as it always was.
-    const visualClips = clips.filter(c => isVisualClip(c, lookupAssets));
-    let maxDuration = 0;
-    (visualClips.length > 0 ? visualClips : clips).forEach(c => {
-        const end = c.startTimeMs + c.durationMs;
-        if (end > maxDuration) maxDuration = end;
-    });
-    if (DEMO_MODE) maxDuration = Math.min(maxDuration, DEMO_MAX_SECONDS * 1000);
+    // (One shared rule, also used by the main thread to size the music levels.)
+    const maxDuration = exportLengthMs(clips, lookupAssets);
     console.log('[Worker] Max duration:', maxDuration, 'Clips count:', clips.length);
 
     if (maxDuration === 0) {
@@ -211,18 +208,21 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
             framerate: settings.fps
         });
 
-        const timeStep = 1000 / settings.fps;
         let currentTimeMs = 0;
         let frameCount = 0;
-        // Frame i shows time i * timeStep, so the video holds ceil(length * fps / 1000) frames:
-        // 7000 ms at 30 fps is 210 frames (0 .. 6966.7 ms). The old `<=` loop also encoded
-        // a frame AT 7000 ms, where no clip is active, so every export ended on one black frame.
-        // Integer math on purpose: dividing by timeStep (1000 / fps, e.g. 41.666..7 at 24 fps)
-        // can land just above a whole number and add that black frame back.
-        const totalVideoFrames = Math.ceil(maxDuration * settings.fps / 1000);
+        // Frame count and frame times come from the shared helpers, so the main thread (music levels)
+        // and this loop cannot disagree. 7000 ms at 30 fps is 210 frames (0 .. 6966.7 ms); the old `<=`
+        // loop also encoded a frame AT 7000 ms, where no clip is active (a black last frame).
+        const totalVideoFrames = exportFrameCount(maxDuration, settings.fps);
 
         while (frameCount < totalVideoFrames) {
-            currentTimeMs = frameCount * timeStep;
+            currentTimeMs = exportFrameTimeMs(frameCount, settings.fps);
+            // Music level for this frame. Past the end of the array it is 0 (counted, never thrown).
+            let currentAudioLevel = 0;
+            if (audioLevels) {
+                if (frameCount < audioLevels.length) currentAudioLevel = audioLevels[frameCount];
+                else musicLevelMisses++;
+            }
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, width, height);
 
@@ -378,6 +378,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                         motionOffsetY = maxOffset - (progress * 2 * maxOffset);
                     }
 
+                    motionScale += clipReaction(clip, currentAudioLevel) * ZOOM_FACTOR * REACTION.zoom;
                     const cx = dx + dw / 2;
                     const cy = dy + dh / 2;
                     const newW = dw * motionScale;
@@ -398,7 +399,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
 
                     renderDeltaFlowFrame(
                         ctx as any, field, deltaFlowProgress,
-                        { sensitivity, strength, noiseAmount },
+                        { sensitivity, ...reactDelta(strength, noiseAmount, clipReaction(clip, currentAudioLevel)) },
                         dx, dy, dw, dh
                     );
                 } else if (clip.transitionType === 'breathing-morph' && !isVideo && breathingMorphPrevImg && breathingMorphPairKey) {
@@ -409,7 +410,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
 
                     renderBreathingMorphFrame(
                         ctx as any, field, breathingMorphProgress,
-                        { turbulence, swirl },
+                        reactBreathing(turbulence, swirl, clipReaction(clip, currentAudioLevel)),
                         dx, dy, dw, dh
                     );
                 } else {
@@ -419,10 +420,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                 // Glitch transition: fires only during the overlap with the previous clip
                 const glitch = resolveGlitchParams(clip);
                 if (clip.transitionType === 'glitch' && glitch.amount && glitch.intensity && overlapProgress !== null) {
+                    const g = reactGlitch(glitch, clipReaction(clip, currentAudioLevel));
                     applyGlitch(ctx as any, dx, dy, dw, dh, {
-                        amount: glitch.amount,
-                        intensity: glitch.intensity,
-                        displacement: glitch.displacement,
+                        amount: g.amount,
+                        intensity: g.intensity,
+                        displacement: g.displacement,
                         seed: currentTimeMs
                     });
                 }
@@ -514,11 +516,11 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
             writableStream = null;
             console.log('[Worker] File written to disk.');
             // Nothing to hand back — the file already exists on disk.
-            self.postMessage({ type: 'done', streamedToDisk: true });
+            self.postMessage({ type: 'done', streamedToDisk: true, musicLevelMisses });
         } else {
             const buffer = (muxer.target as ArrayBufferTarget).buffer;
             console.log('[Worker] Muxer finalized. Sending done message with buffer size:', buffer.byteLength);
-            self.postMessage({ type: 'done', buffer }, { transfer: [buffer] } as any);
+            self.postMessage({ type: 'done', buffer, musicLevelMisses }, { transfer: [buffer] } as any);
         }
 
         imageBitmaps.forEach(b => b.bitmap.close());

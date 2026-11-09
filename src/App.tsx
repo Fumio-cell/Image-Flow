@@ -50,8 +50,8 @@ function App() {
               let objectUrl: string | undefined;
               try {
                   objectUrl = await createAudioPreviewUrl(file);
-                  const { duration, peaks } = await getAudioData(file);
-                  newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
+                  const { duration, peaks, envelope } = await getAudioData(file);
+                  newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks, envelope });
               } catch (err) {
                   if (objectUrl) URL.revokeObjectURL(objectUrl);
                   console.error("Failed to parse audio", err);

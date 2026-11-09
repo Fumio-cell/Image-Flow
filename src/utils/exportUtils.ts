@@ -2,6 +2,7 @@ import { useProjectStore } from '../store/useProjectStore';
 import { seekVideo } from './videoCache';
 import { decodeAudioFile } from '../lib/audio/decodeAudioFile';
 import { getFadeWindow } from './audioMix';
+import { exportAudioLevels } from './audioReaction';
 
 interface FrameRequest {
     clipId: string;
@@ -330,7 +331,12 @@ export const startMP4Export = async (
         // 3. Start encode
         console.log('[ExportUtils] Sending data to worker. Bitmaps length:', imageBitmaps.length, 'Audio:', !!audioPayload);
         const transferList: Transferable[] = imageBitmaps.map(b => b.bitmap);
+        // Music reaction: one level per video frame, from the same function the preview uses. Only built
+        // when some clip reacts, so projects without it pay nothing.
+        const audioLevels = clips.some(c => c.audioReactive) ? exportAudioLevels(clips, assets, settings.fps) : undefined;
+        if (audioLevels) transferList.push(audioLevels.buffer);
         worker.postMessage({
+            audioLevels,
             settings,
             clips,
             fileHandle,

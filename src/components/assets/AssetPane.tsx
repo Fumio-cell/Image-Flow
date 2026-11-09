@@ -65,8 +65,8 @@ export const AssetPane: React.FC = () => {
                 // プロジェクトに存在するが実体ファイルがない場合、同じIDを使って上書きし再リンクする
                 if (isAudio) {
                     try {
-                        const { duration, peaks } = await getAudioData(file);
-                        updateAsset(missingAsset.id, { file, objectUrl, duration, peaks });
+                        const { duration, peaks, envelope } = await getAudioData(file);
+                        updateAsset(missingAsset.id, { file, objectUrl, duration, peaks, envelope });
                     } catch (err) {
                         URL.revokeObjectURL(objectUrl);
                         console.error("Failed to parse audio", err);
@@ -97,9 +97,9 @@ export const AssetPane: React.FC = () => {
                     newAssets.push({ id, type: 'image', file, objectUrl, name: file.name });
                 } else if (isAudio) {
                     try {
-                        const { duration, peaks } = await getAudioData(file);
+                        const { duration, peaks, envelope } = await getAudioData(file);
                         console.log(`[AssetPane] ${file.name} decoded: ${(duration/1000).toFixed(1)}s`);
-                        newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks });
+                        newAssets.push({ id, type: 'audio', file, objectUrl, name: file.name, duration, peaks, envelope });
                     } catch (err) {
                         URL.revokeObjectURL(objectUrl);
                         console.error("Failed to parse audio", err);

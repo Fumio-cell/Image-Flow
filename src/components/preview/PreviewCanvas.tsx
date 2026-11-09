@@ -12,6 +12,7 @@ import { renderBreathingMorphFrame, BREATHING_MORPH_WORK_RES } from '../../utils
 import { BreathingMorphFieldCache } from '../../utils/breathingMorphFieldCache';
 import { findPrevVisualClip } from '../../utils/prevVisualClip';
 import { resolveGlitchParams } from '../../utils/glitchParams';
+import { reactionLevelAt, clipReaction, reactDelta, reactBreathing, reactGlitch, REACTION } from '../../utils/audioReaction';
 import type { Clip } from '../../types';
 
 /** One drawable layer for the current frame — an image or a live video element. */
@@ -120,25 +121,8 @@ export const PreviewCanvas: React.FC = () => {
 
             if (isStale()) return;
 
-            // Extract Audio Level (Peak)
-            const audioClips = activeClips.filter(c => {
-                const a = assets.find(ast => ast.id === c.assetId);
-                return a && a.type === 'audio';
-            });
-            let currentAudioLevel = 0;
-            if (audioClips.length > 0) {
-                for (const ac of audioClips) {
-                    const asset = assets.find(a => a.id === ac.assetId);
-                    if (asset?.peaks && asset.peaks.length > 0 && asset.duration) {
-                        const localMs = playheadMs - ac.startTimeMs;
-                        const prog = localMs / asset.duration;
-                        const idx = Math.floor(prog * asset.peaks.length);
-                        if (idx >= 0 && idx < asset.peaks.length) {
-                             currentAudioLevel = Math.max(currentAudioLevel, asset.peaks[idx]);
-                        }
-                    }
-                }
-            }
+            // Music level at this time (pure; the export computes the same value per frame).
+            const currentAudioLevel = reactionLevelAt(playheadMs, clips, assets);
 
             // ONLY clear the background when we are ready to draw to prevent flickering
             ctx.fillStyle = '#000000';
@@ -274,9 +258,7 @@ export const PreviewCanvas: React.FC = () => {
                     }
 
                     // VJ Mode: Audio Reactivity boosts the zoom scale
-                    if (clip.audioReactive && currentAudioLevel > 0.05) {
-                        motionScale += (currentAudioLevel * ZOOM_FACTOR * 3.0);
-                    }
+                    motionScale += clipReaction(clip, currentAudioLevel) * ZOOM_FACTOR * REACTION.zoom;
 
                     const cx = dx + dw / 2;
                     const cy = dy + dh / 2;
@@ -297,7 +279,7 @@ export const PreviewCanvas: React.FC = () => {
 
                     renderDeltaFlowFrame(
                         ctx, field, deltaFlowProgress,
-                        { sensitivity, strength, noiseAmount },
+                        { sensitivity, ...reactDelta(strength, noiseAmount, clipReaction(clip, currentAudioLevel)) },
                         dx, dy, dw, dh
                     );
                 } else if (clip.transitionType === 'breathing-morph' && !isVideo && breathingMorphPrevImg && breathingMorphPairKey) {
@@ -308,7 +290,7 @@ export const PreviewCanvas: React.FC = () => {
 
                     renderBreathingMorphFrame(
                         ctx, field, breathingMorphProgress,
-                        { turbulence, swirl },
+                        reactBreathing(turbulence, swirl, clipReaction(clip, currentAudioLevel)),
                         dx, dy, dw, dh
                     );
                 } else {
@@ -318,19 +300,12 @@ export const PreviewCanvas: React.FC = () => {
                 // Glitch transition: fires only during the overlap with the previous clip
                 const glitch = resolveGlitchParams(clip);
                 if (clip.transitionType === 'glitch' && glitch.amount && glitch.intensity && overlapProgress !== null) {
-                    let finalAmount = glitch.amount;
-                    let finalIntensity = glitch.intensity;
-                    let finalDisplace = glitch.displacement;
-                    if (clip.audioReactive && currentAudioLevel > 0.1) {
-                        finalAmount = Math.min(1.0, finalAmount + currentAudioLevel * 0.5);
-                        finalIntensity = Math.min(1.0, finalIntensity + currentAudioLevel * 0.8);
-                        if (finalDisplace > 0) finalDisplace = Math.min(1.0, finalDisplace + currentAudioLevel);
-                    }
+                    const g = reactGlitch(glitch, clipReaction(clip, currentAudioLevel));
 
                     applyGlitch(ctx, dx, dy, dw, dh, {
-                        amount: finalAmount,
-                        intensity: finalIntensity,
-                        displacement: finalDisplace,
+                        amount: g.amount,
+                        intensity: g.intensity,
+                        displacement: g.displacement,
                         seed: playheadMs
                     });
                 }

@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useId, useRef } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { findPrevVisualClip } from '../../utils/prevVisualClip';
 import { glitchUntouched, resolveGlitchParams } from '../../utils/glitchParams';
 import { SecondsField } from '../timeline/SecondsField';
+import { DEFAULT_MUSIC_REACTION } from '../../utils/audioReaction';
+import type { Clip } from '../../types';
 import { formatSecondsLabel } from '../timeline/timeFormat';
 
 const RangeField: React.FC<{
@@ -13,13 +15,15 @@ const RangeField: React.FC<{
     step?: number;
     onChange: (v: number) => void;
 }> = ({ label, value, min, max, step = 0.01, onChange }) => {
+    const id = useId();
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', marginBottom: '0.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
+                <label htmlFor={id} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
                 <span style={{ fontSize: '10px', color: 'var(--text-accent)' }}>{value.toFixed(2)}</span>
             </div>
             <input
+                id={id}
                 type="range"
                 min={min}
                 max={max}
@@ -28,6 +32,37 @@ const RangeField: React.FC<{
                 onChange={(e) => onChange(parseFloat(e.target.value))}
                 style={{ width: '100%', cursor: 'pointer' }}
             />
+        </div>
+    );
+};
+
+/**
+ * "Music reaction" slider. One drag is ONE undo step: the history snapshot is taken just before the first
+ * change of a drag and the rest of the drag only updates the value. A keyboard change (no drag) is one step each.
+ */
+const MusicReactionSlider: React.FC<{ clip: Clip }> = ({ clip }) => {
+    const updateClip = useProjectStore((s) => s.updateClip);
+    const updateClipTransient = useProjectStore((s) => s.updateClipTransient);
+    const saveHistory = useProjectStore((s) => s.saveHistory);
+    const dragging = useRef(false);
+    const saved = useRef(false);
+    const wrap = useRef<HTMLDivElement>(null);
+
+    const onChange = (v: number) => {
+        if (!dragging.current) { updateClip(clip.id, { musicReaction: v }); return; }
+        if (!saved.current) { saveHistory(); saved.current = true; }
+        updateClipTransient(clip.id, { musicReaction: v });
+    };
+    const endDrag = () => {
+        dragging.current = false; saved.current = false;
+        window.removeEventListener('pointerup', endDrag);
+        // A focused input swallows Cmd+Z (the global shortcut ignores inputs), and the drag is an undoable step.
+        wrap.current?.querySelector('input')?.blur();
+    };
+
+    return (
+        <div ref={wrap} onPointerDownCapture={() => { dragging.current = true; saved.current = false; window.addEventListener('pointerup', endDrag); }}>
+            <RangeField label="Music reaction" value={clip.musicReaction ?? DEFAULT_MUSIC_REACTION} min={0} max={1} onChange={onChange} />
         </div>
     );
 };
@@ -97,6 +132,11 @@ export const SettingsPane: React.FC = () => {
     const prevEnd = prevClip ? prevClip.startTimeMs + prevClip.durationMs : 0;
     const overlapMs = prevClip ? Math.max(0, prevEnd - clip.startTimeMs) : 0;
     const packedVisual = autoPack && clipAsset?.type !== 'audio';
+    // Music reaction needs the audio's envelope, which is made at import and not saved with the project.
+    const audioWithoutEnvelope = clips.some(c => {
+        const a = assets.find(x => x.id === c.assetId);
+        return a?.type === 'audio' && !a.envelope;
+    });
     // The sliders show what Glitch really runs with. The first slider you move stores all three, so
     // the other two keep the values you were looking at instead of dropping to 0.
     const glitch = resolveGlitchParams(clip);
@@ -367,6 +407,12 @@ export const SettingsPane: React.FC = () => {
                         Sync Zoom & Glitch to Audio Beats
                     </label>
                 </div>
+                {clip.audioReactive && <MusicReactionSlider clip={clip} />}
+                {clip.audioReactive && audioWithoutEnvelope && (
+                    <div role="status" style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '0.4rem', border: '1px dashed var(--panel-border)', borderRadius: 'var(--radius-sm)' }}>
+                        Re-import the audio to enable Music reaction.
+                    </div>
+                )}
             </div>
 
             <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--panel-border)' }}>

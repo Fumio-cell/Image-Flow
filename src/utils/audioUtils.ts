@@ -2,6 +2,8 @@
 
 import { isAiff, decodeAiff } from '../lib/audio/aiffDecoder';
 import { decodeAudioFile } from '../lib/audio/decodeAudioFile';
+import { buildEnvelope } from './audioReaction';
+import type { AudioEnvelope } from '../types';
 
 const WAVEFORM_SAMPLES = 1000;
 // A waveform doesn't need full fidelity. Decoding at a low rate is far faster
@@ -34,7 +36,7 @@ const computePeaks = (data: Float32Array): number[] => {
  * forever if decoding outran its timeout, which looked like the file silently
  * refusing to import.
  */
-export const getAudioData = async (file: File): Promise<{ duration: number; peaks: number[] }> => {
+export const getAudioData = async (file: File): Promise<{ duration: number; peaks: number[]; envelope?: AudioEnvelope }> => {
     let aiff = false;
     try {
         const buffer = await file.arrayBuffer();
@@ -47,7 +49,12 @@ export const getAudioData = async (file: File): Promise<{ duration: number; peak
             const peaks = decoded.numberOfChannels > 0
                 ? computePeaks(decoded.getChannelData(0))
                 : new Array(WAVEFORM_SAMPLES).fill(0.1);
-            return { duration: decoded.duration * 1000, peaks };
+            // Music reaction reads this envelope, never `peaks` (which only draws the waveform). It comes from the
+            // same 8 kHz decode. Without a decode there is no envelope, and no envelope means level 0.
+            const envelope = decoded.numberOfChannels > 0 && decoded.length > 0
+                ? buildEnvelope(Array.from({ length: decoded.numberOfChannels }, (_, c) => decoded.getChannelData(c)), decoded.sampleRate)
+                : undefined;
+            return { duration: decoded.duration * 1000, peaks, envelope };
         } finally {
             await ctx.close().catch(() => { /* already closed */ });
         }
