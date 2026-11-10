@@ -214,6 +214,8 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
         // and this loop cannot disagree. 7000 ms at 30 fps is 210 frames (0 .. 6966.7 ms); the old `<=`
         // loop also encoded a frame AT 7000 ms, where no clip is active (a black last frame).
         const totalVideoFrames = exportFrameCount(maxDuration, settings.fps);
+        // Integer microsecond timestamp of frame i, from the same shared frame-time helper.
+        const frameTimestampUs = (i: number) => Math.round(exportFrameTimeMs(i, settings.fps) * 1000);
 
         while (frameCount < totalVideoFrames) {
             currentTimeMs = exportFrameTimeMs(frameCount, settings.fps);
@@ -436,7 +438,17 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
             for (const bmp of frameBitmapsToClose) bmp.close();
             frameBitmapsToClose.length = 0;
 
-            const frame = new VideoFrame(canvas, { timestamp: currentTimeMs * 1000 });
+            // Every frame gets an explicit timestamp AND duration. The encoded chunk's duration is copied from
+            // the input frame; a frame without one yields chunk.duration === null on Chrome 157+ (older Chromium
+            // gave 0), and mp4-muxer throws on null. Durations tile exactly: dur(i) = ts(i + 1) - ts(i); the last
+            // frame repeats the previous one (a single-frame export uses one frame period).
+            const timestampUs = frameTimestampUs(frameCount);
+            const durationUs = frameCount + 1 < totalVideoFrames
+                ? frameTimestampUs(frameCount + 1) - timestampUs
+                : totalVideoFrames > 1
+                    ? timestampUs - frameTimestampUs(frameCount - 1)
+                    : Math.round(1_000_000 / settings.fps);
+            const frame = new VideoFrame(canvas, { timestamp: timestampUs, duration: durationUs });
             encoder.encode(frame, { keyFrame: frameCount % (settings.fps * 2) === 0 });
             frame.close();
 
