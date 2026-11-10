@@ -113,15 +113,20 @@ export const reactGlitch = (g: { amount: number; intensity: number; displacement
 type AssetKind = Pick<AssetItem, 'id' | 'type'>;
 
 /**
- * Length of the exported video in ms: the end of the last VISUAL clip (an audio-only project falls back to
- * the largest end over all clips), then the demo cap.
+ * Length of the project in ms before any demo cap: the end of the last VISUAL clip (an audio-only project
+ * falls back to the largest end over all clips).
  */
-export function exportLengthMs(clips: readonly Clip[], assets: readonly AssetKind[]): number {
+export function projectLengthMs(clips: readonly Clip[], assets: readonly AssetKind[]): number {
     const visual = clips.filter(c => isVisualClip(c, assets));
     let length = 0;
     for (const c of visual.length > 0 ? visual : clips) length = Math.max(length, c.startTimeMs + c.durationMs);
-    if (DEMO_MODE) length = Math.min(length, DEMO_MAX_SECONDS * 1000);
     return length;
+}
+
+/** Length of the exported video in ms: the project length, then the demo cap. */
+export function exportLengthMs(clips: readonly Clip[], assets: readonly AssetKind[]): number {
+    const length = projectLengthMs(clips, assets);
+    return DEMO_MODE ? Math.min(length, DEMO_MAX_SECONDS * 1000) : length;
 }
 
 /** Frames in the export: ceil(length * fps / 1000), integer math (no division by a rounded step). */

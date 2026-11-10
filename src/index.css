@@ -177,21 +177,6 @@ input:focus, select:focus {
   padding: 1rem;
 }
 
-.gated {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
-    position: relative;
-}
-
-.gated::after {
-    content: '🔒';
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 0.8rem;
-}
-
 /* Volume slider.
    The browser default insets the thumb, so at 100% the fill stops short of the
    right edge and reads as "not quite maximum". Drawing the track ourselves lets
@@ -237,19 +222,57 @@ input:focus, select:focus {
   cursor: default;
 }
 
-.demo-notice {
+/* Demo build: note under the toolbar, next to the Export button */
+.demo-note {
   margin: 0;
+  padding: 0.25rem 1rem;
+  text-align: right;
   font-size: 11px;
   line-height: 1.4;
-  color: rgba(255, 208, 138, 0.95);
-  background: rgba(255, 176, 59, 0.1);
-  border: 1px solid rgba(255, 176, 59, 0.4);
-  border-radius: 4px;
-  padding: 0.3rem 0.6rem;
+  color: var(--text-muted);
+  background-color: var(--panel-bg);
+  border-bottom: 1px solid var(--panel-border);
 }
 
-.demo-notice a {
+/* Demo build: panel shown after an export finishes */
+.demo-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  width: 300px;
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  color: var(--text-main);
+  background-color: var(--panel-bg);
+  border: 1px solid rgba(255, 176, 59, 0.5);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.demo-panel h4 {
+  margin: 0 0 0.25rem;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.demo-panel p {
+  margin: 0 0 0.6rem;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.demo-panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.demo-panel a {
   color: #ffd08a;
   font-weight: 600;
+  font-size: 12px;
   text-decoration: underline;
 }

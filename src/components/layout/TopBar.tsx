@@ -1,29 +1,31 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Download, FolderOpen, Save, FilePlus2, Play, Pause } from 'lucide-react';
 import { saveProject, loadProject } from '../../utils/projectPersistence';
 import { startMP4Export } from '../../utils/exportUtils';
 import { useProjectStore } from '../../store/useProjectStore';
-import { DEMO_MODE, DEMO_MAX_SECONDS, IS_PRO, BUY_URL } from '../../config';
+import { DEMO_MODE, DEMO_MAX_SECONDS } from '../../config';
+import { exportLengthMs, projectLengthMs } from '../../utils/audioReaction';
+import { DemoExportPanel } from './DemoExportPanel';
 
 export const TopBar: React.FC = () => {
     const isPlaying = useProjectStore(s => s.ui.isPlaying);
     const setIsPlaying = useProjectStore(s => s.setIsPlaying);
     const clips = useProjectStore(s => s.data.clips);
+    const assets = useProjectStore(s => s.data.assets);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const exportBtnRef = useRef<HTMLButtonElement>(null);
 
     const [exporting, setExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState(0);
-    const [demoLimited, setDemoLimited] = useState(false);
+    const [showDemoPanel, setShowDemoPanel] = useState(false);
 
-    const handleGatedAction = (action: () => void) => {
-        if (!IS_PRO) {
-            if (confirm('Exporting projects with more than 3 clips is a PRO feature. Would you like to upgrade?')) {
-                window.open(BUY_URL, '_blank', 'noopener,noreferrer');
-            }
-            return;
-        }
-        action();
-    };
+    // Demo note: the cap itself lives in exportLengthMs (one rule); here we only compare.
+    const demoCut = DEMO_MODE && exportLengthMs(clips, assets) < projectLengthMs(clips, assets);
+
+    const closeDemoPanel = useCallback(() => {
+        setShowDemoPanel(false);
+        exportBtnRef.current?.focus();
+    }, []);
 
     const handleNewProject = () => {
         if (confirm("Clear current project?")) {
@@ -40,41 +42,34 @@ export const TopBar: React.FC = () => {
     };
 
     const handleExport = () => {
-        const performExport = () => {
-            setExporting(true);
-            setExportProgress(0);
-            startMP4Export(
-                (p) => setExportProgress(Math.round(p * 100)),
-                (url) => {
-                    setExporting(false);
-                    if (DEMO_MODE) setDemoLimited(true);
-                    // Streamed exports are already saved to the chosen file —
-                    // only the in-memory fallback hands back a URL to download.
-                    if (!url) return;
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `image-flow-${Date.now()}.mp4`;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, 1000);
-                },
-                (err) => {
-                    setExporting(false);
-                    if (err === 'Export cancelled.') return; // User dismissed the save dialog.
-                    alert(`Export failed: ${err}`);
-                }
-            );
-        };
-
-        if (clips.length > 3) {
-            handleGatedAction(performExport);
-        } else {
-            performExport();
-        }
+        setShowDemoPanel(false);
+        setExporting(true);
+        setExportProgress(0);
+        startMP4Export(
+            (p) => setExportProgress(Math.round(p * 100)),
+            (url) => {
+                setExporting(false);
+                if (DEMO_MODE) setShowDemoPanel(true);
+                // Streamed exports are already saved to the chosen file —
+                // only the in-memory fallback hands back a URL to download.
+                if (!url) return;
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `image-flow-${Date.now()}.mp4`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 1000);
+            },
+            (err) => {
+                setExporting(false);
+                if (err === 'Export cancelled.') return; // User dismissed the save dialog.
+                alert(`Export failed: ${err}`);
+            }
+        );
     };
 
     return (
@@ -111,22 +106,27 @@ export const TopBar: React.FC = () => {
                         <Save size={16} /> Save
                     </button>
                     <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--panel-border)', margin: '0 0.5rem' }} />
-                    <button 
-                        className={`btn btn-primary ${clips.length > 3 && !IS_PRO ? 'gated' : ''}`}
-                        onClick={handleExport}
-                        disabled={exporting}
-                        title={clips.length > 3 && !IS_PRO ? 'Upgrade to PRO for more than 3 clips' : ''}
-                    >
-                        <Download size={16} /> {exporting ? 'Exporting...' : DEMO_MODE ? 'Export MP4 (10s preview)' : 'Export MP4'}
-                    </button>
-                    {DEMO_MODE && demoLimited && (
-                        <p className="demo-notice">
-                            Demo export is limited to {DEMO_MAX_SECONDS} seconds.{' '}
-                            <a href={BUY_URL} target="_blank" rel="noopener noreferrer">Get the full version</a>
-                        </p>
-                    )}
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            ref={exportBtnRef}
+                            className="btn btn-primary"
+                            onClick={handleExport}
+                            disabled={exporting}
+                        >
+                            <Download size={16} /> {exporting ? 'Exporting...' : DEMO_MODE ? 'Export MP4 (10s preview)' : 'Export MP4'}
+                        </button>
+                        {DEMO_MODE && showDemoPanel && <DemoExportPanel onClose={closeDemoPanel} />}
+                    </div>
                 </div>
             </div>
+
+            {DEMO_MODE && (
+                <p className="demo-note">
+                    {demoCut
+                        ? `Demo: this project is longer than ${DEMO_MAX_SECONDS} s. Only the first ${DEMO_MAX_SECONDS} s will be exported.`
+                        : `Demo: exports are limited to ${DEMO_MAX_SECONDS} seconds.`}
+                </p>
+            )}
 
             {exporting && (
                 <div style={{
