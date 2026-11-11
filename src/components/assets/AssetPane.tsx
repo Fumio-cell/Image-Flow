@@ -3,6 +3,7 @@ import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData, createAudioPreviewUrl } from '../../utils/audioUtils';
 import { getVideoData } from '../../utils/videoUtils';
+import { readImageSize } from '../../utils/imageSize';
 import type { AssetItem } from '../../types';
 import { TrySampleButton, SampleCredit } from './SampleControls';
 
@@ -95,7 +96,8 @@ export const AssetPane: React.FC = () => {
                 // 完全な新規追加
                 const id = crypto.randomUUID();
                 if (isImage) {
-                    newAssets.push({ id, type: 'image', file, objectUrl, name: file.name });
+                    const size = await readImageSize(file);
+                    newAssets.push({ id, type: 'image', file, objectUrl, name: file.name, width: size?.width, height: size?.height });
                 } else if (isAudio) {
                     try {
                         const { duration, peaks, envelope } = await getAudioData(file);

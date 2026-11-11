@@ -10,6 +10,7 @@ import { getSourceTimeSec } from '../utils/videoTiming';
 import { findPrevVisualClip, type PrevLookupAsset } from '../utils/prevVisualClip';
 import { exportLengthMs, exportFrameCount, exportFrameTimeMs, clipReaction, reactDelta, reactBreathing, reactGlitch, REACTION } from '../utils/audioReaction';
 import { resolveGlitchParams } from '../utils/glitchParams';
+import { videoBitrate } from '../utils/exportBitrate';
 
 export interface VideoAssetMeta {
     assetId: string;
@@ -202,8 +203,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
             codec: 'avc1.640034', // Using High profile (64) level 5.2 (34) for maximum quality
             width,
             height,
-            bitrate: settings.resolution === '3840x2160' ? 60_000_000 :
-                settings.resolution === '1920x1920' ? 40_000_000 : 30_000_000,
+            bitrate: videoBitrate(settings.resolution, settings.exportQuality),
             bitrateMode: 'variable',
             framerate: settings.fps
         });

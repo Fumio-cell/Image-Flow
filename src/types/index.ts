@@ -1,5 +1,7 @@
 export type Resolution = '1280x720' | '1920x1080' | '1920x1920' | '3840x2160';
 export type FPS = 24 | 30;
+/** Standard = the export's usual video bitrates, High = double (see utils/exportBitrate). */
+export type ExportQuality = 'standard' | 'high';
 
 /** Music level over time: one value per hop, normalised to 0..1 (see utils/audioReaction). */
 export interface AudioEnvelope {
@@ -12,6 +14,10 @@ export interface ProjectSettings {
     fps: FPS;
     /** Visual lane is a packed row (see utils/packClips). Saved with the project; a file without it loads as false. */
     autoPack?: boolean;
+    /** Video bitrate preset of the export. Absent means Standard. Saved with the project. */
+    exportQuality?: ExportQuality;
+    /** Who set the resolution: 'auto' (from the first visual asset) or 'manual' (the user). Absent: nobody yet. Saved with the project. */
+    resolutionSource?: 'auto' | 'manual';
 }
 
 export type AssetType = 'image' | 'audio' | 'video';
@@ -27,8 +33,8 @@ export interface AssetItem {
     envelope?: AudioEnvelope; // Audio only: windowed-RMS envelope for Music reaction. Not saved with the project.
     posterUrl?: string; // Video thumbnail (data URL)
     hasAudio?: boolean; // Video only: whether the file carries an audio track
-    width?: number;  // Intrinsic pixel width (video)
-    height?: number; // Intrinsic pixel height (video)
+    width?: number;  // Intrinsic pixel width (video, and images added by import or drop)
+    height?: number; // Intrinsic pixel height (video, and images added by import or drop)
 }
 
 export type TransitionType = 'cut' | 'dissolve' | 'delta-flow' | 'glitch' | 'breathing-morph';

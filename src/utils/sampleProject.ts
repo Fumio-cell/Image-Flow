@@ -54,7 +54,7 @@ export async function loadSample(): Promise<void> {
 
     const assets: AssetItem[] = images.map((blob, i) => {
         const file = new File([blob], IMAGE_FILES[i], { type: 'image/webp' });
-        return { id: crypto.randomUUID(), type: 'image', file, objectUrl: URL.createObjectURL(file), name: file.name };
+        return { id: crypto.randomUUID(), type: 'image', file, objectUrl: URL.createObjectURL(file), name: file.name, width: 1920, height: 1920 };
     });
 
     const audioFile = new File([track], TRACK_FILE, { type: 'audio/mp4' });

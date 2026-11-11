@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { ProjectData, AssetItem, Clip, ProjectSettings } from '../types';
+import type { ProjectData, AssetItem, Clip, ProjectSettings, Resolution } from '../types';
+import { autoResolutionFor, resolutionEntry } from '../utils/pickResolution';
 import {
     DEFAULT_OVERLAP_MS, PACK_TRIGGER_KEYS, defaultTransitionFor, isVisualClip,
     normalizeJunctionUpdate, packClips, visualRow,
@@ -11,6 +12,8 @@ interface UIState {
     isPlaying: boolean;
     previewQuality: 'Draft' | 'Full';
     zoomScale: number; // Pixels per ms
+    /** One line shown in the Settings pane after the automatic resolution choice. Not part of the project or the undo history. */
+    resolutionNotice: string | null;
 }
 
 interface ProjectStoreState {
@@ -33,6 +36,9 @@ interface ProjectStoreActions {
 
     // Settings
     updateSettings: (updates: Partial<ProjectSettings>) => void;
+    /** The user picks a resolution by hand: one undo step, and the automatic choice never overrides it. */
+    setResolution: (resolution: Resolution) => void;
+    dismissResolutionNotice: () => void;
 
     // Assets
     addAssets: (assets: AssetItem[]) => void;
@@ -76,7 +82,8 @@ const initialUI: UIState = {
     playheadMs: 0,
     isPlaying: false,
     previewQuality: 'Full',
-    zoomScale: 0.1 // 100px = 1 second
+    zoomScale: 0.1, // 100px = 1 second
+    resolutionNotice: null
 };
 
 const MAX_HISTORY = 30;
@@ -134,13 +141,14 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
             clips: data.clips.map(c => ({ ...c }))
         };
 
-        set({
+        set((state) => ({
             data: previous,
             history: {
                 past: newPast,
                 future: [clonedCurrent, ...history.future]
-            }
-        });
+            },
+            ui: { ...state.ui, resolutionNotice: null }
+        }));
     },
 
     redo: () => {
@@ -156,13 +164,14 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
             clips: data.clips.map(c => ({ ...c }))
         };
 
-        set({
+        set((state) => ({
             data: next,
             history: {
                 past: [...history.past, clonedCurrent],
                 future: newFuture
-            }
-        });
+            },
+            ui: { ...state.ui, resolutionNotice: null }
+        }));
     },
 
     saveHistory: () => {
@@ -179,14 +188,33 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
         }));
     },
 
-    addAssets: (assets) => {
+    setResolution: (resolution) => {
         get()._saveHistory();
         set((state) => ({
-            data: {
-                ...state.data,
-                assets: [...state.data.assets, ...assets]
-            }
+            data: { ...state.data, settings: { ...state.data.settings, resolution, resolutionSource: 'manual' } },
+            ui: { ...state.ui, resolutionNotice: null }
         }));
+    },
+
+    dismissResolutionNotice: () => set((state) => ({ ui: { ...state.ui, resolutionNotice: null } })),
+
+    // The first visual asset of an empty project also picks the resolution, inside the same history step as the import.
+    addAssets: (assets) => {
+        get()._saveHistory();
+        set((state) => {
+            const auto = autoResolutionFor(state.data, assets);
+            const changed = !!auto && auto.resolution !== state.data.settings.resolution;
+            return {
+                data: {
+                    ...state.data,
+                    settings: auto ? { ...state.data.settings, resolution: auto.resolution, resolutionSource: 'auto' } : state.data.settings,
+                    assets: [...state.data.assets, ...assets]
+                },
+                ui: changed && auto
+                    ? { ...state.ui, resolutionNotice: `Resolution set to ${resolutionEntry(auto.resolution).label} to match your first ${auto.kind}.` }
+                    : state.ui
+            };
+        });
     },
 
     updateAsset: (id, updates) => {
@@ -289,7 +317,7 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
         get()._saveHistory();
         set((state) => ({
             data,
-            ui: { ...state.ui, selectedClipId: null, playheadMs: 0, isPlaying: false }
+            ui: { ...state.ui, selectedClipId: null, playheadMs: 0, isPlaying: false, resolutionNotice: null }
         }));
     },
 

@@ -4,7 +4,8 @@ import { findPrevVisualClip } from '../../utils/prevVisualClip';
 import { glitchUntouched, resolveGlitchParams } from '../../utils/glitchParams';
 import { SecondsField } from '../timeline/SecondsField';
 import { DEFAULT_MUSIC_REACTION } from '../../utils/audioReaction';
-import type { Clip } from '../../types';
+import type { Clip, ExportQuality, Resolution } from '../../types';
+import { RESOLUTIONS, firstVisualAsset, resolutionEnlarges, resolutionName } from '../../utils/pickResolution';
 import { formatSecondsLabel } from '../timeline/timeFormat';
 
 const RangeField: React.FC<{
@@ -87,6 +88,12 @@ export const SettingsPane: React.FC = () => {
 
     const settings = useProjectStore((s) => s.data.settings);
     const updateSettings = useProjectStore((s) => s.updateSettings);
+    const setResolution = useProjectStore((s) => s.setResolution);
+    const resolutionNotice = useProjectStore((s) => s.ui.resolutionNotice);
+    const dismissResolutionNotice = useProjectStore((s) => s.dismissResolutionNotice);
+    const qualityId = useId();
+    const enlarged = resolutionEnlarges(settings.resolution, assets);
+    const firstIsVideo = firstVisualAsset(assets)?.type === 'video';
 
     if (!clip) {
         return (
@@ -97,13 +104,34 @@ export const SettingsPane: React.FC = () => {
                     <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export Resolution</label>
                     <select
                         value={settings.resolution}
-                        onChange={(e) => updateSettings({ resolution: e.target.value as any })}
+                        onChange={(e) => setResolution(e.target.value as Resolution)}
                         style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
                     >
-                        <option value="1280x720">HD (1280x720)</option>
-                        <option value="1920x1080">Full HD (1920x1080)</option>
-                        <option value="1920x1920">Square (1920x1920)</option>
-                        <option value="3840x2160">4K UHD (3840x2160)</option>
+                        {RESOLUTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                    {resolutionNotice && (
+                        <div role="status" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', fontSize: '11px', lineHeight: 1.4, color: 'var(--text-main)', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '0.35rem 0.5rem' }}>
+                            <span>{resolutionNotice}</span>
+                            <button type="button" className="btn btn-secondary" onClick={dismissResolutionNotice} style={{ padding: '0 0.4rem', fontSize: '11px', flexShrink: 0 }}>Dismiss</button>
+                        </div>
+                    )}
+                    {enlarged && (
+                        <p style={{ margin: 0, fontSize: '11px', lineHeight: 1.4, color: 'rgba(255, 208, 138, 0.95)' }}>
+                            {resolutionName(settings.resolution)} is larger than your {firstIsVideo ? 'video; it' : 'images; they'} will be enlarged.
+                        </p>
+                    )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label htmlFor={qualityId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export quality</label>
+                    <select
+                        id={qualityId}
+                        value={settings.exportQuality ?? 'standard'}
+                        onChange={(e) => updateSettings({ exportQuality: e.target.value as ExportQuality })}
+                        style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
+                    >
+                        <option value="standard">Standard</option>
+                        <option value="high">High (about twice the file size)</option>
                     </select>
                 </div>
 

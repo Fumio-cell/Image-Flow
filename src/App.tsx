@@ -5,6 +5,7 @@ import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useProjectStore } from './store/useProjectStore';
 import { getAudioData, createAudioPreviewUrl } from './utils/audioUtils';
+import { readImageSize } from './utils/imageSize';
 import type { AssetItem } from './types';
 
 function App() {
@@ -45,7 +46,8 @@ function App() {
           const id = crypto.randomUUID();
 
           if (isImage) {
-              newAssets.push({ id, type: 'image', file, objectUrl: URL.createObjectURL(file), name: file.name });
+              const size = await readImageSize(file);
+              newAssets.push({ id, type: 'image', file, objectUrl: URL.createObjectURL(file), name: file.name, width: size?.width, height: size?.height });
           } else if (isAudio) {
               let objectUrl: string | undefined;
               try {
