@@ -6,7 +6,7 @@ import { getAudioData, createAudioPreviewUrl } from './audioUtils';
 /** Shown wherever the sample is in use and in the About modal. Exact wording: do not edit. */
 export const SAMPLE_CREDIT = 'Sample images by Miho Morita. Sample track: "Frequency Dreams" by Bomb Sun.';
 
-const IMAGE_FILES = ['sample-1.jpg', 'sample-2.jpg', 'sample-3.jpg', 'sample-4.jpg', 'sample-5.jpg'];
+const IMAGE_FILES = ['sample-1.webp', 'sample-2.webp', 'sample-3.webp', 'sample-4.webp', 'sample-5.webp'];
 const TRACK_FILE = 'sample-track.m4a';
 
 const CLIP_MS = 2500;
@@ -53,7 +53,7 @@ export async function loadSample(): Promise<void> {
     ]);
 
     const assets: AssetItem[] = images.map((blob, i) => {
-        const file = new File([blob], IMAGE_FILES[i], { type: 'image/jpeg' });
+        const file = new File([blob], IMAGE_FILES[i], { type: 'image/webp' });
         return { id: crypto.randomUUID(), type: 'image', file, objectUrl: URL.createObjectURL(file), name: file.name };
     });
 
