@@ -25,11 +25,12 @@ html, body {
   flex-direction: column;
 }
 
-/* Type: headings and buttons are display, labels and notes are mono. */
+/* Type: display is rationed to the wordmark, one statement and buttons. Every heading is the mono control style. */
 h1, h2, h3, h4, h5, h6 {
-  font: 900 26px/26px var(--font-display);
-  letter-spacing: -0.02em;
-  color: var(--paper);
+  font: 500 11px/16px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
   margin-bottom: var(--space-2);
 }
 
@@ -271,7 +272,8 @@ input:focus, select:focus {
   top: var(--space-2);
   left: var(--space-3);
   color: var(--line);
-  font: 900 32px/32px var(--font-display);
+  font: 500 11px/16px var(--font-mono);
+  letter-spacing: 0.08em;
   pointer-events: none;
 }
 
@@ -297,4 +299,82 @@ input:focus, select:focus {
 
 .timeline-tracks::-webkit-scrollbar {
   height: 12px;
+}
+
+/* Opening screen: the empty state. Text on the left, the sample's own artwork on the stage ground on the right (no accent beside it). */
+.opening {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  background-color: var(--ink);
+}
+
+.opening-text {
+  flex: 0 0 46%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border-right: var(--rule-hair) solid var(--line);
+  min-width: 0;
+}
+
+.opening-wordmark {
+  margin: 0;
+  font: 900 clamp(64px, 8vw, 104px) / 0.9 var(--font-display);
+  letter-spacing: -0.03em;
+  color: var(--paper);
+  text-transform: none;
+}
+
+.opening-line {
+  margin: 0;
+  max-width: 36ch;
+}
+
+.opening-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.opening-stage {
+  position: relative;
+  flex: 1;
+  background-color: var(--ink-stage);
+  overflow: hidden;
+}
+
+/* Three images, 4 s each with a 1.5 s cross-fade (a 12 s loop). */
+.opening-slide {
+  position: absolute;
+  top: var(--space-5);
+  left: var(--space-5);
+  width: calc(100% - 2 * var(--space-5));
+  height: calc(100% - 2 * var(--space-5));
+  object-fit: contain;
+  opacity: 0;
+  animation: opening-fade 12s linear infinite;
+  animation-delay: calc(var(--i) * 4s);
+}
+
+@keyframes opening-fade {
+  0% { opacity: 0; }
+  12.5% { opacity: 1; }
+  33.333% { opacity: 1; }
+  45.833% { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Reduced motion: no animation, one still image. */
+@media (prefers-reduced-motion: reduce) {
+  .opening-slide {
+    animation: none;
+    opacity: 0;
+  }
+  .opening-slide:first-child {
+    opacity: 1;
+  }
 }

@@ -6,8 +6,21 @@ import { SettingsPane } from '../settings/SettingsPane';
 import { PreviewContainer } from '../preview/PreviewContainer';
 import { TimelineContainer } from '../timeline/TimelineContainer';
 import { NoticeHost } from '../common/NoticeHost';
+import { OpeningScreen } from './OpeningScreen';
+import { useProjectStore } from '../../store/useProjectStore';
 
 export const AppLayout: React.FC = () => {
+    // The opening screen IS the empty state: it shows while the project has no asset and gives way to the editor
+    // the moment one arrives (a button, a drop, undo, deleting the last asset).
+    const hasAssets = useProjectStore((s) => s.data.assets.length > 0);
+    if (!hasAssets) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+                <OpeningScreen />
+                <NoticeHost />
+            </div>
+        );
+    }
     return (
         <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
             <Header />

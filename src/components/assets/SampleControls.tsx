@@ -44,7 +44,7 @@ export const TrySampleButton: React.FC<{ prominent?: boolean }> = ({ prominent }
             <button
                 type="button"
                 data-sample-trigger
-                className="btn btn-secondary"
+                className={`btn ${prominent ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={onClick}
                 onKeyDown={stopAppKeys}
                 disabled={busy}

@@ -1,5 +1,6 @@
 import React, { useId, useRef } from 'react';
 import { ProjectSettingsControls } from './ProjectSettingsControls';
+import { TrustStatement } from '../common/TrustStatement';
 import { useProjectStore } from '../../store/useProjectStore';
 import { findPrevVisualClip } from '../../utils/prevVisualClip';
 import { glitchUntouched, resolveGlitchParams } from '../../utils/glitchParams';
@@ -98,8 +99,7 @@ export const SettingsPane: React.FC = () => {
                 <ProjectSettingsControls />
 
                 <div style={{ marginTop: 'var(--space-4)' }}>
-                    <p className="t-statement" style={{ color: 'var(--paper)', margin: 0 }}>NOTHING LEAVES THIS MACHINE</p>
-                    <p className="t-note" style={{ margin: 'var(--space-3) 0 0' }}>No upload. No account. The file is made here.</p>
+                    <TrustStatement />
                 </div>
 
                 <div className="t-note" style={{ marginTop: 'auto', padding: 'var(--space-3)', border: 'var(--rule-hair) solid var(--line)', textAlign: 'center' }}>

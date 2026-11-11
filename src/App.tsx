@@ -86,7 +86,7 @@ function App() {
               justifyContent: 'center',
               pointerEvents: 'none'
           }}>
-              <h2 className="t-heading" style={{ margin: 0 }}>
+              <h2 style={{ margin: 0 }}>
                   Drop to Add to Timeline
               </h2>
           </div>

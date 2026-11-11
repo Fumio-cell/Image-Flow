@@ -85,6 +85,7 @@ export const Header: React.FC = () => {
                     margin: 0;
                     font: 900 40px/40px var(--font-display);
                     letter-spacing: -0.03em;
+                    text-transform: none;
                     color: var(--paper);
                 }
                 .preview-badge {
@@ -111,8 +112,8 @@ export const Header: React.FC = () => {
                     position: relative;
                     text-align: left;
                 }
-                .info-modal h2 { margin-top: 0; color: var(--paper); }
-                .info-modal h3 { font: 700 15px/20px var(--font-display); letter-spacing: 0; color: var(--paper); margin-bottom: var(--space-4); }
+                .info-modal h2 { margin-top: 0; }
+                .info-modal h3 { margin-bottom: var(--space-4); }
                 .info-modal p { color: var(--paper-dim); font: 400 11px/19px var(--font-mono); margin-bottom: var(--space-3); }
                 .info-modal ul { list-style-type: none; margin: 0; padding: 0; }
                 .info-modal li { margin-bottom: var(--space-2); font: 400 11px/19px var(--font-mono); color: var(--paper-dim); }
