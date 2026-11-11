@@ -4,6 +4,7 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData, createAudioPreviewUrl } from '../../utils/audioUtils';
 import { getVideoData } from '../../utils/videoUtils';
 import type { AssetItem } from '../../types';
+import { TrySampleButton, SampleCredit } from './SampleControls';
 
 export const AssetPane: React.FC = () => {
     const assets = useProjectStore((s) => s.data.assets);
@@ -158,6 +159,8 @@ export const AssetPane: React.FC = () => {
                     <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
                         <p style={{ fontSize: '12px' }}>No assets imported.</p>
                         <p style={{ fontSize: '12px' }}>Drag & drop files or click +</p>
+                        <p style={{ fontSize: '12px', margin: '1.25rem 0 0.5rem' }}>or start from an example:</p>
+                        <TrySampleButton prominent />
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
@@ -232,6 +235,13 @@ export const AssetPane: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {assets.length > 0 && (
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.75rem' }}>
+                    <TrySampleButton />
+                    <SampleCredit />
+                </div>
+            )}
         </div>
     );
 };

@@ -46,6 +46,7 @@ interface ProjectStoreActions {
     updateClipTransient: (id: string, updates: Partial<Clip>) => void;
     removeClip: (id: string) => void;
     setClips: (clips: Clip[]) => void; // for bulk reorder
+    replaceProject: (data: ProjectData) => void; // swap the WHOLE project (e.g. the sample): one undo step
 
     // Auto-pack (visual lane). Each is exactly one undo step.
     insertClipAt: (clip: Clip, index: number) => void;   // slot in the visual row, then re-pack
@@ -280,6 +281,15 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
                 ...state.data,
                 clips
             }
+        }));
+    },
+
+    // Old assets keep their object URLs (no revoke): undo brings the previous project back as it was.
+    replaceProject: (data) => {
+        get()._saveHistory();
+        set((state) => ({
+            data,
+            ui: { ...state.ui, selectedClipId: null, playheadMs: 0, isPlaying: false }
         }));
     },
 

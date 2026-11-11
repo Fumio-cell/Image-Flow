@@ -25,3 +25,6 @@ dist-ssr
 .claude/
 
 .env
+
+# The artist's original sample material (full-size PNGs, 24-bit WAV). Only the converted files in public/sample/ ship.
+/IF-5b/

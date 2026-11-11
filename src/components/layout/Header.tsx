@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Info, X } from 'lucide-react';
 import { DEMO_MODE } from '../../config';
+import { SAMPLE_CREDIT } from '../../utils/sampleProject';
 
 export const Header: React.FC = () => {
     const [showInfo, setShowInfo] = useState(false);
@@ -146,6 +147,8 @@ export const Header: React.FC = () => {
                             <p>Image Flowは、静止画のピクセルを「液体」のように扱うビジュアルモジュレーターです。タイムライン上に写真を並べ、オプティカルフローで歪ませる「Delta Flow」、渦を巻くように変形する「Breathing Morph」、断片的に引き裂く「Glitch」といった流体的なトランジションで画像同士をつなぎ、溶け合い・波打ち・渦を巻くように次のカットへ移行させます。Ken Burns（ズーム・パン）モーションと、映像・音声ともに高音質な書き出しが、写真の集まりを催眠的なデジタル・フローアートへと昇華させます。</p>
                             <ul><li>主要機能: Delta Flow / Breathing Morph トランジション、Glitchカット、Ken Burnsモーション、タイムライン編集、映像・音声高音質書き出し。</li></ul>
                         </div>
+
+                        <p data-sample-credit style={{ marginTop: '24px', marginBottom: 0, fontSize: '0.8rem', color: '#94a3b8' }}>{SAMPLE_CREDIT}</p>
                     </div>
                 </div>,
                 document.body
