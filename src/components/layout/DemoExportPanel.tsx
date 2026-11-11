@@ -29,7 +29,7 @@ export const DemoExportPanel: React.FC<Props> = ({ onClose }) => {
 
     return (
         <div ref={ref} className="demo-panel" role="dialog" aria-labelledby="demo-panel-title" tabIndex={-1}>
-            <h4 id="demo-panel-title">Export finished</h4>
+            <h3 id="demo-panel-title">Export finished</h3>
             <p>The demo exports up to {DEMO_MAX_SECONDS} seconds. The full version exports any length.</p>
             <div className="demo-panel-actions">
                 <a href={BUY_URL} target="_blank" rel="noopener noreferrer">Get the full version</a>

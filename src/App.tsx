@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './App.css';
+import { notify } from './utils/notify';
 import { AppLayout } from './components/layout/AppLayout';
 import { usePlaybackLoop } from './hooks/usePlaybackLoop';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -57,7 +57,7 @@ function App() {
               } catch (err) {
                   if (objectUrl) URL.revokeObjectURL(objectUrl);
                   console.error("Failed to parse audio", err);
-                  alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
+                  notify(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
               }
           }
       }

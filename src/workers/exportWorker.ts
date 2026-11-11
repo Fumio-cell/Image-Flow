@@ -400,7 +400,7 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                     const field = DeltaFlowFieldCache.getField(deltaFlowPairKey, deltaFlowPrevImg, img, sensitivity, DELTA_FLOW_WORK_RES, dw, dh);
 
                     renderDeltaFlowFrame(
-                        ctx as any, field, deltaFlowProgress,
+                        ctx, field, deltaFlowProgress,
                         { sensitivity, ...reactDelta(strength, noiseAmount, clipReaction(clip, currentAudioLevel)) },
                         dx, dy, dw, dh
                     );
@@ -411,19 +411,19 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
                     const field = BreathingMorphFieldCache.getField(breathingMorphPairKey, breathingMorphPrevImg, img, BREATHING_MORPH_WORK_RES, dw, dh);
 
                     renderBreathingMorphFrame(
-                        ctx as any, field, breathingMorphProgress,
+                        ctx, field, breathingMorphProgress,
                         reactBreathing(turbulence, swirl, clipReaction(clip, currentAudioLevel)),
                         dx, dy, dw, dh
                     );
                 } else {
-                    drawDownscaledImage(ctx as any, img as any, dx, dy, dw, dh);
+                    drawDownscaledImage(ctx, img, dx, dy, dw, dh);
                 }
 
                 // Glitch transition: fires only during the overlap with the previous clip
                 const glitch = resolveGlitchParams(clip);
                 if (clip.transitionType === 'glitch' && glitch.amount && glitch.intensity && overlapProgress !== null) {
                     const g = reactGlitch(glitch, clipReaction(clip, currentAudioLevel));
-                    applyGlitch(ctx as any, dx, dy, dw, dh, {
+                    applyGlitch(ctx, dx, dy, dw, dh, {
                         amount: g.amount,
                         intensity: g.intensity,
                         displacement: g.displacement,
@@ -532,16 +532,16 @@ self.onmessage = async (e: MessageEvent<ExportWorkerData | { type: string; reque
         } else {
             const buffer = (muxer.target as ArrayBufferTarget).buffer;
             console.log('[Worker] Muxer finalized. Sending done message with buffer size:', buffer.byteLength);
-            self.postMessage({ type: 'done', buffer, musicLevelMisses }, { transfer: [buffer] } as any);
+            self.postMessage({ type: 'done', buffer, musicLevelMisses }, { transfer: [buffer] });
         }
 
         imageBitmaps.forEach(b => b.bitmap.close());
-    } catch (workerErr: any) {
+    } catch (workerErr) {
         console.error('[Worker] Fatal error:', workerErr);
         if (writableStream) {
             // Leave no half-written file behind.
             try { await writableStream.abort(); } catch { /* already gone */ }
         }
-        self.postMessage({ type: 'error', error: workerErr.message || String(workerErr) });
+        self.postMessage({ type: 'error', error: (workerErr as { message?: string } | null)?.message || String(workerErr) });
     }
 };

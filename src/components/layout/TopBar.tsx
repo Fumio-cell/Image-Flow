@@ -6,6 +6,8 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { DEMO_MODE, DEMO_MAX_SECONDS } from '../../config';
 import { exportLengthMs, projectLengthMs } from '../../utils/audioReaction';
 import { DemoExportPanel } from './DemoExportPanel';
+import { ModalDialog } from '../common/ModalDialog';
+import { notify } from '../../utils/notify';
 
 export const TopBar: React.FC = () => {
     const isPlaying = useProjectStore(s => s.ui.isPlaying);
@@ -18,6 +20,7 @@ export const TopBar: React.FC = () => {
     const [exporting, setExporting] = useState(false);
     const [exportProgress, setExportProgress] = useState(0);
     const [showDemoPanel, setShowDemoPanel] = useState(false);
+    const [clearing, setClearing] = useState(false);
 
     // Demo note: the cap itself lives in exportLengthMs (one rule); here we only compare.
     const demoCut = DEMO_MODE && exportLengthMs(clips, assets) < projectLengthMs(clips, assets);
@@ -27,11 +30,8 @@ export const TopBar: React.FC = () => {
         exportBtnRef.current?.focus();
     }, []);
 
-    const handleNewProject = () => {
-        if (confirm("Clear current project?")) {
-            window.location.reload();
-        }
-    };
+    // Asks in the page (not confirm()); "Clear project" reloads the app, which starts an empty project.
+    const handleNewProject = () => setClearing(true);
 
     const handleLoadProject = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -67,13 +67,14 @@ export const TopBar: React.FC = () => {
             (err) => {
                 setExporting(false);
                 if (err === 'Export cancelled.') return; // User dismissed the save dialog.
-                alert(`Export failed: ${err}`);
+                notify(`Export failed: ${err}`, { title: 'Export failed', returnFocus: () => exportBtnRef.current });
             }
         );
     };
 
     return (
         <>
+            <section aria-label="Project controls">
             <div style={{
                 height: '48px',
                 borderBottom: '1px solid var(--panel-border)',
@@ -84,11 +85,11 @@ export const TopBar: React.FC = () => {
                 padding: '0 1rem'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Project Controls</h3>
+                    <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Project Controls</h2>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button className="btn btn-icon" onClick={() => setIsPlaying(!isPlaying)}>
+                    <button className="btn btn-icon" onClick={() => setIsPlaying(!isPlaying)} aria-label={isPlaying ? 'Pause' : 'Play'}>
                         {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                     </button>
                     <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--panel-border)', margin: '0 0.5rem' }} />
@@ -127,6 +128,7 @@ export const TopBar: React.FC = () => {
                         : `Demo: exports are limited to ${DEMO_MAX_SECONDS} seconds.`}
                 </p>
             )}
+            </section>
 
             {exporting && (
                 <div style={{
@@ -134,14 +136,23 @@ export const TopBar: React.FC = () => {
                     backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
                 }}>
-                    <div style={{ backgroundColor: 'var(--panel-bg)', padding: '2rem', borderRadius: 'var(--radius-md)', width: '300px', textAlign: 'center' }}>
-                        <h3 style={{ marginBottom: '1rem', margin: 0 }}>Exporting Video...</h3>
+                    <div role="dialog" aria-modal="true" aria-label="Exporting video" style={{ backgroundColor: 'var(--panel-bg)', padding: '2rem', borderRadius: 'var(--radius-md)', width: '300px', textAlign: 'center' }}>
+                        <h2 style={{ marginBottom: '1rem', margin: 0 }}>Exporting Video...</h2>
                         <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--panel-border)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
                             <div style={{ width: `${exportProgress}%`, height: '100%', backgroundColor: 'var(--accent-color)', transition: 'width 0.2s' }} />
                         </div>
                         <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{exportProgress}%</p>
                     </div>
                 </div>
+            )}
+
+            {clearing && (
+                <ModalDialog
+                    title="Clear the current project?"
+                    message="This removes everything in the project and starts a new, empty one. It cannot be undone."
+                    actions={[{ label: 'Cancel', autoFocus: true, onClick: () => setClearing(false) }, { label: 'Clear project', primary: true, onClick: () => window.location.reload() }]}
+                    onClose={() => setClearing(false)}
+                />
             )}
         </>
     );

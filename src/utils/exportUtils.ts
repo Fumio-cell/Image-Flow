@@ -350,7 +350,7 @@ export const startMP4Export = async (
             audio: audioPayload
         }, transferList); // Transfer ownership of bitmaps/audio buffers to worker
 
-    } catch (err: any) {
-        onError(err.message || String(err));
+    } catch (err) {
+        onError((err as { message?: string } | null)?.message || String(err));
     }
 };

@@ -55,10 +55,16 @@ type AssetLike = Pick<AssetItem, 'id' | 'type' | 'width' | 'height'>;
 export const firstVisualAsset = <T extends Pick<AssetItem, 'type'>>(assets: readonly T[]): T | undefined =>
     assets.find(a => a.type !== 'audio');
 
-/** True when the project resolution is taller than the first visual asset: the picture is enlarged beyond its source. */
+/**
+ * True when the picture is drawn larger than its source: the first visual asset, fitted into the project resolution
+ * (the app's default "fit": scale = min(width ratio, height ratio)), would be scaled up. A 1920x1080 image in Square is
+ * drawn 1:1, so no; the same image in 4K is drawn 2x, so yes. Unknown asset size: no.
+ */
 export function resolutionEnlarges(resolution: Resolution, assets: readonly AssetLike[]): boolean {
     const first = firstVisualAsset(assets);
-    return !!first?.height && resolutionEntry(resolution).height > first.height;
+    if (!first?.width || !first.height) return false;
+    const r = resolutionEntry(resolution);
+    return Math.min(r.width / first.width, r.height / first.height) > 1 + 1e-9;
 }
 
 /**

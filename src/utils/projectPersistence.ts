@@ -1,4 +1,5 @@
 import { useProjectStore } from '../store/useProjectStore';
+import { notify } from './notify';
 
 export const saveProject = () => {
     const state = useProjectStore.getState().data;
@@ -48,9 +49,9 @@ export const loadProject = async (file: File) => {
             ui: { ...s.ui, selectedClipId: null, playheadMs: 0 }
         }));
 
-        alert('Project loaded. Please re-import missing assets to view them.');
+        notify('Project loaded. Please re-import missing assets to view them.');
     } catch (err) {
-        alert('Failed to load project.');
+        notify('Failed to load project.');
         console.error(err);
     }
 };

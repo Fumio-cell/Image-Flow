@@ -5,11 +5,13 @@
   
   --text-main: #e2e8f0;
   --text-muted: #94a3b8;
-  --text-inactive: #475569;
+  --text-inactive: #8190a6;
   
   --accent-color: #7c5cfc;
+  --accent-strong: #6a4be0; /* white text on it is 5.7:1 (the lighter accent gives 4.4:1) */
   --accent-hover: #6a4be0;
   --accent-active: #5a3cc8;
+  --focus-ring: #c7d2fe;   /* keyboard focus ring: 8:1 or more on every panel colour, 3.8:1 on the primary button */
   
   --danger-color: #ef4444;
   --danger-hover: #dc2626;
@@ -23,7 +25,7 @@
   --clip-border: #475569;
   --clip-selected: #7c5cfc;
 
-  --font-family: 'Inter', 'FOT-Seurat Pro', 'Seurat Pro', 'Seurat', 'スーラ Pro', 'Hiragino Maru Gothic ProN', -apple-system, sans-serif;
+  --font-family: 'Inter', 'FOT-Seurat Pro', 'Seurat Pro', 'Seurat', 'Hiragino Maru Gothic ProN', -apple-system, sans-serif;
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -77,7 +79,6 @@ button {
   background: none;
   font-family: inherit;
   color: inherit;
-  outline: none;
 }
 
 .btn {
@@ -93,16 +94,16 @@ button {
 }
 
 .btn-primary {
-  background-color: var(--accent-color);
+  background-color: var(--accent-strong);
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: var(--accent-hover);
+  background-color: var(--accent-active);
 }
 
 .btn-primary:active {
-  background-color: var(--accent-active);
+  background-color: #4b30ad;
 }
 
 .btn-secondary {
@@ -161,7 +162,6 @@ input, select {
   padding: 0.5rem;
   border-radius: var(--radius-sm);
   font-size: 0.875rem;
-  outline: none;
   transition: border-color var(--transition-fast);
 }
 
@@ -186,7 +186,6 @@ input:focus, select:focus {
   appearance: none;
   height: 6px;
   border-radius: 3px;
-  outline: none;
   cursor: pointer;
   margin: 0;
 }
@@ -250,7 +249,7 @@ input:focus, select:focus {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
-.demo-panel h4 {
+.demo-panel h3 {
   margin: 0 0 0.25rem;
   font-size: 13px;
   font-weight: 600;
@@ -275,4 +274,40 @@ input:focus, select:focus {
   font-weight: 600;
   font-size: 12px;
   text-decoration: underline;
+}
+
+/* Decorative "CLIPS" watermark of an empty visual lane. It is a pseudo-element so it is not page text (it is far below any contrast ratio on purpose). */
+.lane-ghost {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  color: rgba(255, 255, 255, 0.05);
+  font-size: 32px;
+  font-weight: bold;
+  pointer-events: none;
+}
+
+.lane-ghost::before {
+  content: 'CLIPS';
+}
+
+/* Keyboard focus: one visible ring for every interactive element (buttons, links, fields, sliders, clips, chips). */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  /* A dark gap between the element and the ring keeps the ring readable over any picture or colour inside the element. */
+  box-shadow: 0 0 0 2px var(--bg-color);
+  transition: none; /* the ring appears at once (buttons use `transition: all`, which would animate it in) */
+}
+
+/* Layout shell and scrollbar details (these used to live in App.css) */
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-tracks::-webkit-scrollbar {
+  height: 12px;
 }

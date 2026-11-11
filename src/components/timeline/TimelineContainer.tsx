@@ -161,7 +161,7 @@ export const TimelineContainer: React.FC = () => {
                     <button
                         className="btn btn-icon"
                         onClick={handleZoomOut}
-                        title="Zoom Out"
+                        title="Zoom Out" aria-label="Zoom Out"
                         style={{ padding: '2px 4px' }}
                     >
                         <ZoomOut size={14} />
@@ -169,7 +169,7 @@ export const TimelineContainer: React.FC = () => {
                     <button
                         className="btn btn-icon"
                         onClick={handleFitAll}
-                        title="Fit All (全体表示)"
+                        title="Fit All" aria-label="Fit All"
                         style={{ padding: '2px 4px' }}
                     >
                         <Maximize2 size={14} />
@@ -177,7 +177,7 @@ export const TimelineContainer: React.FC = () => {
                     <button
                         className="btn btn-icon"
                         onClick={handleZoomIn}
-                        title="Zoom In"
+                        title="Zoom In" aria-label="Zoom In"
                         style={{ padding: '2px 4px' }}
                     >
                         <ZoomIn size={14} />

@@ -283,6 +283,14 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                         <div
                             key={clip.id}
                             onMouseDown={packed ? handlePackedMouseDown : handleClipMouseDown}
+                            // Keyboard: Tab to a clip, Enter or Space selects it (dragging and trimming stay mouse-only).
+                            tabIndex={0}
+                            role="button"
+                            aria-pressed={isSelected}
+                            aria-label={`${asset?.name ?? 'Clip'}, starts at ${(clip.startTimeMs / 1000).toFixed(1)} seconds`}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); e.stopPropagation(); setSelectedClipId(clip.id); }
+                            }}
                             style={{
                                 opacity: draggingId === clip.id ? 0.45 : 1,
                                 // Auto-pack overlaps neighbours; a selected clip rises so its end handle can be grabbed.
@@ -427,23 +435,19 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                     flexDirection: 'column',
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    color: 'rgba(255,255,255,0.4)', 
+                    color: 'var(--text-muted)', 
                     fontSize: '14px', 
                     fontWeight: 'bold', 
                     pointerEvents: 'none', 
                     textAlign: 'center' 
                 }}>
                     {kind === 'audio' ? 'DRAG AUDIO HERE' : 'DRAG IMAGES OR VIDEO HERE'}
-                    <div style={{ fontSize: '10px', marginTop: '4px', opacity: 0.7 }}>DROP FROM ASSETS PANE ON THE LEFT</div>
+                    <div style={{ fontSize: '10px', marginTop: '4px' }}>DROP FROM ASSETS PANE ON THE LEFT</div>
                 </div>
             ) : null}
 
             {/* Faint hint: only in an EMPTY VISUAL lane, judged by the lane's own clips, never the audio lane. */}
-            {kind === 'visual' && laneOwnClipCount === 0 && (
-                <div style={{ position: 'absolute', top: '8px', left: '12px', color: 'rgba(255,255,255,0.05)', fontSize: '32px', fontWeight: 'bold', pointerEvents: 'none' }}>
-                    CLIPS
-                </div>
-            )}
+            {kind === 'visual' && laneOwnClipCount === 0 && <div aria-hidden="true" className="lane-ghost" />}
         </div>
     );
 };

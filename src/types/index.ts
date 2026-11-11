@@ -1,5 +1,5 @@
 export type Resolution = '1280x720' | '1920x1080' | '1920x1920' | '3840x2160';
-export type FPS = 24 | 30;
+export type FPS = 24 | 30 | 60;
 /** Standard = the export's usual video bitrates, High = double (see utils/exportBitrate). */
 export type ExportQuality = 'standard' | 'high';
 

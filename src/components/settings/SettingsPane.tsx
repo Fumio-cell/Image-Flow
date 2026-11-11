@@ -1,11 +1,11 @@
 import React, { useId, useRef } from 'react';
+import { ProjectSettingsControls } from './ProjectSettingsControls';
 import { useProjectStore } from '../../store/useProjectStore';
 import { findPrevVisualClip } from '../../utils/prevVisualClip';
 import { glitchUntouched, resolveGlitchParams } from '../../utils/glitchParams';
 import { SecondsField } from '../timeline/SecondsField';
 import { DEFAULT_MUSIC_REACTION } from '../../utils/audioReaction';
-import type { Clip, ExportQuality, Resolution } from '../../types';
-import { RESOLUTIONS, firstVisualAsset, resolutionEnlarges, resolutionName } from '../../utils/pickResolution';
+import type { Clip, FitMode, MotionType, TransitionType } from '../../types';
 import { formatSecondsLabel } from '../timeline/timeFormat';
 
 const RangeField: React.FC<{
@@ -86,68 +86,17 @@ export const SettingsPane: React.FC = () => {
     const updateClip = useProjectStore((s) => s.updateClip);
     const removeClip = useProjectStore((s) => s.removeClip);
 
-    const settings = useProjectStore((s) => s.data.settings);
-    const updateSettings = useProjectStore((s) => s.updateSettings);
-    const setResolution = useProjectStore((s) => s.setResolution);
-    const resolutionNotice = useProjectStore((s) => s.ui.resolutionNotice);
-    const dismissResolutionNotice = useProjectStore((s) => s.dismissResolutionNotice);
-    const qualityId = useId();
-    const enlarged = resolutionEnlarges(settings.resolution, assets);
-    const firstIsVideo = firstVisualAsset(assets)?.type === 'video';
+    const transitionId = useId();
+    const fitId = useId();
+    const motionId = useId();
 
     if (!clip) {
         return (
             <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', color: 'var(--text-muted)' }}>
-                <h3 style={{ fontSize: '14px', margin: 0, color: 'var(--text-main)' }}>Project Settings</h3>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export Resolution</label>
-                    <select
-                        value={settings.resolution}
-                        onChange={(e) => setResolution(e.target.value as Resolution)}
-                        style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
-                    >
-                        {RESOLUTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                    </select>
-                    {resolutionNotice && (
-                        <div role="status" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', fontSize: '11px', lineHeight: 1.4, color: 'var(--text-main)', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '0.35rem 0.5rem' }}>
-                            <span>{resolutionNotice}</span>
-                            <button type="button" className="btn btn-secondary" onClick={dismissResolutionNotice} style={{ padding: '0 0.4rem', fontSize: '11px', flexShrink: 0 }}>Dismiss</button>
-                        </div>
-                    )}
-                    {enlarged && (
-                        <p style={{ margin: 0, fontSize: '11px', lineHeight: 1.4, color: 'rgba(255, 208, 138, 0.95)' }}>
-                            {resolutionName(settings.resolution)} is larger than your {firstIsVideo ? 'video; it' : 'images; they'} will be enlarged.
-                        </p>
-                    )}
-                </div>
+                <h2 style={{ fontSize: '14px', margin: 0, color: 'var(--text-main)' }}>Project Settings</h2>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label htmlFor={qualityId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Export quality</label>
-                    <select
-                        id={qualityId}
-                        value={settings.exportQuality ?? 'standard'}
-                        onChange={(e) => updateSettings({ exportQuality: e.target.value as ExportQuality })}
-                        style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
-                    >
-                        <option value="standard">Standard</option>
-                        <option value="high">High (about twice the file size)</option>
-                    </select>
-                </div>
+                <ProjectSettingsControls />
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Framerate (FPS)</label>
-                    <select
-                        value={settings.fps}
-                        onChange={(e) => updateSettings({ fps: parseInt(e.target.value, 10) as any })}
-                        style={{ padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' }}
-                    >
-                        <option value="24">24 FPS (Cinematic)</option>
-                        <option value="30">30 FPS (Standard)</option>
-                        <option value="60">60 FPS (Smooth)</option>
-                    </select>
-                </div>
-                
                 <div style={{ marginTop: 'auto', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '11px', textAlign: 'center' }}>
                     Select a clip on the timeline below to edit its properties.
                 </div>
@@ -174,7 +123,9 @@ export const SettingsPane: React.FC = () => {
 
     return (
         <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '0.75rem' }}>
-            <h3 style={{ fontSize: '14px', margin: 0 }}>Clip Settings</h3>
+            <h2 style={{ fontSize: '14px', margin: 0 }}>Clip Settings</h2>
+
+            <ProjectSettingsControls compact />
 
             {packedVisual ? (
                 // Auto-pack derives the start from the clips before it.
@@ -246,10 +197,11 @@ export const SettingsPane: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Transition Type</label>
+                <label htmlFor={transitionId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Transition Type</label>
                 <select
+                    id={transitionId}
                     value={clip.transitionType}
-                    onChange={(e) => updateClip(clip.id, { transitionType: e.target.value as any })}
+                    onChange={(e) => updateClip(clip.id, { transitionType: e.target.value as TransitionType })}
                 >
                     <option value="cut">Cut</option>
                     <option value="dissolve">Dissolve</option>
@@ -299,10 +251,11 @@ export const SettingsPane: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Image Fit Mode</label>
+                <label htmlFor={fitId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Image Fit Mode</label>
                 <select
+                    id={fitId}
                     value={clip.fitMode}
-                    onChange={(e) => updateClip(clip.id, { fitMode: e.target.value as any })}
+                    onChange={(e) => updateClip(clip.id, { fitMode: e.target.value as FitMode })}
                 >
                     <option value="fit">Fit</option>
                     <option value="fill">Fill (Crop)</option>
@@ -311,10 +264,11 @@ export const SettingsPane: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ken Burns Effect (Motion)</label>
+                <label htmlFor={motionId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ken Burns Effect (Motion)</label>
                 <select
+                    id={motionId}
                     value={clip.motionType || 'none'}
-                    onChange={(e) => updateClip(clip.id, { motionType: e.target.value as any })}
+                    onChange={(e) => updateClip(clip.id, { motionType: e.target.value as MotionType })}
                 >
                     <option value="none">None</option>
                     <option value="zoom-in">Zoom In</option>

@@ -378,4 +378,5 @@ export const useProjectStore = create<ProjectStoreState & ProjectStoreActions>((
 }));
 
 // FOR TESTING
-(window as any).useProjectStore = useProjectStore;
+declare global { interface Window { useProjectStore: typeof useProjectStore } }
+window.useProjectStore = useProjectStore;

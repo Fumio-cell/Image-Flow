@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { notify } from '../../utils/notify';
 import { Film, Music, Plus, Trash2 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { getAudioData, createAudioPreviewUrl } from '../../utils/audioUtils';
@@ -53,18 +54,18 @@ export const AssetPane: React.FC = () => {
                     objectUrl = await createAudioPreviewUrl(file);
                 } catch (err) {
                     console.error("Failed to parse audio", err);
-                    alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
+                    notify(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     continue;
                 }
             } else {
                 objectUrl = URL.createObjectURL(file);
             }
 
-            // プロジェクト保存・読み込み時に file/objectUrl が欠落している同名アセットを探す
+            // Look for an asset of the same name that lost its file/objectUrl when a project was saved and loaded
             const missingAsset = storeAssets.find(a => a.name === file.name && !a.file);
 
             if (missingAsset) {
-                // プロジェクトに存在するが実体ファイルがない場合、同じIDを使って上書きし再リンクする
+                // The project has this asset but not its file: relink it under the same id
                 if (isAudio) {
                     try {
                         const { duration, peaks, envelope } = await getAudioData(file);
@@ -72,7 +73,7 @@ export const AssetPane: React.FC = () => {
                     } catch (err) {
                         URL.revokeObjectURL(objectUrl);
                         console.error("Failed to parse audio", err);
-                        alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
+                        notify(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     }
                 } else if (isVideo) {
                     try {
@@ -82,7 +83,7 @@ export const AssetPane: React.FC = () => {
                         console.error("Failed to parse video", err);
                         // Container is fine but the codec may not be — ProRes and
                         // some HEVC .mov files simply can't be decoded in a browser.
-                        alert(
+                        notify(
                             `Could not read video: ${file.name}\n\n` +
                             `Your browser can't decode this file's video codec ` +
                             `(common with ProRes or HEVC .mov). ` +
@@ -93,7 +94,7 @@ export const AssetPane: React.FC = () => {
                     updateAsset(missingAsset.id, { file, objectUrl });
                 }
             } else {
-                // 完全な新規追加
+                // A brand-new asset
                 const id = crypto.randomUUID();
                 if (isImage) {
                     const size = await readImageSize(file);
@@ -106,7 +107,7 @@ export const AssetPane: React.FC = () => {
                     } catch (err) {
                         URL.revokeObjectURL(objectUrl);
                         console.error("Failed to parse audio", err);
-                        alert(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
+                        notify(`Failed to decode audio file (${err instanceof Error ? err.message : String(err)})`);
                     }
                 } else if (isVideo) {
                     try {
@@ -116,7 +117,7 @@ export const AssetPane: React.FC = () => {
                         console.error("Failed to parse video", err);
                         // Container is fine but the codec may not be — ProRes and
                         // some HEVC .mov files simply can't be decoded in a browser.
-                        alert(
+                        notify(
                             `Could not read video: ${file.name}\n\n` +
                             `Your browser can't decode this file's video codec ` +
                             `(common with ProRes or HEVC .mov). ` +
@@ -133,7 +134,7 @@ export const AssetPane: React.FC = () => {
         }
 
         if (skipped.length > 0) {
-            alert(`Unsupported file type:\n${skipped.join('\n')}`);
+            notify(`Unsupported file type:\n${skipped.join('\n')}`);
         }
 
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -142,8 +143,8 @@ export const AssetPane: React.FC = () => {
     return (
         <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '14px', margin: 0 }}>Assets</h3>
-                <button className="btn btn-icon" onClick={() => fileInputRef.current?.click()}>
+                <h2 style={{ fontSize: '14px', margin: 0 }}>Assets</h2>
+                <button className="btn btn-icon" onClick={() => fileInputRef.current?.click()} aria-label="Add files" title="Add files">
                     <Plus size={16} />
                 </button>
                 <input

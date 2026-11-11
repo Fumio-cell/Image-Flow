@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { SAMPLE_CREDIT, isSampleAsset, loadSample } from '../../utils/sampleProject';
+import { ModalDialog } from '../common/ModalDialog';
 
 // The app's global shortcuts take these keys from any non-input target; our controls keep them.
 const stopAppKeys = (e: React.KeyboardEvent) => {
@@ -9,54 +9,6 @@ const stopAppKeys = (e: React.KeyboardEvent) => {
 };
 
 const focusTrigger = () => setTimeout(() => document.querySelector<HTMLElement>('[data-sample-trigger]')?.focus(), 0);
-
-/** In-page confirmation (not confirm()): replaces the project only on "Load sample". */
-const ConfirmDialog: React.FC<{ onLoad: () => void; onCancel: () => void }> = ({ onLoad, onCancel }) => {
-    const loadRef = useRef<HTMLButtonElement>(null);
-    const cancelRef = useRef<HTMLButtonElement>(null);
-
-    useEffect(() => { loadRef.current?.focus(); }, []);
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
-        };
-        document.addEventListener('keydown', onKey);
-        return () => document.removeEventListener('keydown', onKey);
-    }, [onCancel]);
-
-    // Two buttons: Tab / Shift+Tab cycle between them while the dialog is open.
-    const onKeyDown = (e: React.KeyboardEvent) => {
-        stopAppKeys(e);
-        if (e.key !== 'Tab') return;
-        const active = document.activeElement;
-        if (e.shiftKey && active === cancelRef.current) { e.preventDefault(); loadRef.current?.focus(); }
-        else if (!e.shiftKey && active === loadRef.current) { e.preventDefault(); cancelRef.current?.focus(); }
-    };
-
-    return createPortal(
-        <div
-            onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-            <div
-                role="dialog" aria-modal="true" aria-labelledby="sample-confirm-title" aria-describedby="sample-confirm-text"
-                onKeyDown={onKeyDown}
-                style={{ width: '340px', maxWidth: '90vw', padding: '1.25rem', backgroundColor: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 'var(--radius-md)', boxShadow: '0 12px 32px rgba(0,0,0,0.5)', color: 'var(--text-main)' }}
-            >
-                <h4 id="sample-confirm-title" style={{ margin: '0 0 0.5rem', fontSize: '14px', fontWeight: 600 }}>Load the sample?</h4>
-                <p id="sample-confirm-text" style={{ margin: '0 0 1rem', fontSize: '12px', lineHeight: 1.5, color: 'var(--text-muted)' }}>
-                    This replaces your current project. You can undo it.
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                    <button ref={cancelRef} type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
-                    {/* Not .btn-primary: its white-on-accent text is below 4.5:1 (an existing issue, left alone); this one passes. */}
-                    <button ref={loadRef} type="button" className="btn" onClick={onLoad} style={{ backgroundColor: 'var(--accent-active)', color: '#fff' }}>Load sample</button>
-                </div>
-            </div>
-        </div>,
-        document.body
-    );
-};
 
 /** "Try a sample": loads the shipped sample project. Asks first when the project is not empty. */
 export const TrySampleButton: React.FC<{ prominent?: boolean }> = ({ prominent }) => {
@@ -101,7 +53,15 @@ export const TrySampleButton: React.FC<{ prominent?: boolean }> = ({ prominent }
                 {busy ? 'Loading sample…' : 'Try a sample'}
             </button>
             {failed && <p role="alert" style={{ margin: '0.5rem 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>Could not load the sample. Check your connection and try again.</p>}
-            {confirming && <ConfirmDialog onLoad={() => { void run(); }} onCancel={cancel} />}
+            {confirming && (
+                <ModalDialog
+                    title="Load the sample?"
+                    message="This replaces your current project. You can undo it."
+                    actions={[{ label: 'Cancel', onClick: cancel }, { label: 'Load sample', primary: true, onClick: () => { void run(); } }]}
+                    onClose={cancel}
+                    returnFocus={() => document.querySelector<HTMLElement>('[data-sample-trigger]')}
+                />
+            )}
         </div>
     );
 };

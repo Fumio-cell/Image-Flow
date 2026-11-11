@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Info, X } from 'lucide-react';
 import { DEMO_MODE } from '../../config';
@@ -6,6 +6,18 @@ import { SAMPLE_CREDIT } from '../../utils/sampleProject';
 
 export const Header: React.FC = () => {
     const [showInfo, setShowInfo] = useState(false);
+    const infoBtnRef = useRef<HTMLButtonElement>(null);
+    const closeRef = useRef<HTMLButtonElement>(null);
+
+    // About dialog: focus moves in, Escape closes it, focus returns to the (i) button.
+    useEffect(() => {
+        if (!showInfo) return;
+        closeRef.current?.focus();
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setShowInfo(false); } };
+        document.addEventListener('keydown', onKey);
+        const btn = infoBtnRef.current;
+        return () => { document.removeEventListener('keydown', onKey); btn?.focus(); };
+    }, [showInfo]);
 
     return (
         <header className="toolkit-header">
@@ -20,8 +32,8 @@ export const Header: React.FC = () => {
                     <span className="toolkit-name">Poetic Signal Toolkit</span>
                 </div>
                 <div className="app-separator">/</div>
-                <div className="app-name">Image Flow</div>
-                <button onClick={() => setShowInfo(true)} className="info-btn">
+                <h1 className="app-name">Image Flow</h1>
+                <button ref={infoBtnRef} onClick={() => setShowInfo(true)} className="info-btn" aria-label="About Image Flow" title="About Image Flow">
                     <Info className="w-4 h-4" />
                 </button>
             </div>
@@ -77,6 +89,7 @@ export const Header: React.FC = () => {
                     font-size: 20px;
                 }
                 .app-name {
+                    margin: 0;
                     color: rgba(255, 255, 255, 0.85);
                     font-size: 20px;
                     font-weight: 600;
@@ -109,7 +122,7 @@ export const Header: React.FC = () => {
                     text-align: left;
                 }
                 .info-modal h2 { margin-top: 0; color: #f8fafc; font-size: 1.5rem; }
-                .info-modal h3 { color: #7c5cfc; font-size: 0.85rem; margin-bottom: 24px; font-weight: 600; }
+                .info-modal h3 { color: #a5b4fc; font-size: 0.85rem; margin-bottom: 24px; font-weight: 600; }
                 .info-modal p { color: #cbd5e1; line-height: 1.6; font-size: 0.9rem; margin-bottom: 12px; }
                 .info-modal ul { color: #cbd5e1; font-size: 0.85rem; padding-left: 20px; list-style-type: none; margin:0; padding:0; }
                 .info-modal li { margin-bottom: 8px; font-weight: 500; color: #94a3b8; }
@@ -131,21 +144,14 @@ export const Header: React.FC = () => {
         
             {showInfo && createPortal(
                 <div className="info-modal-overlay" onClick={() => setShowInfo(false)}>
-                    <div className="info-modal" onClick={e => e.stopPropagation()}>
-                        <button className="info-close" onClick={() => setShowInfo(false)}><X className="w-5 h-5"/></button>
-                        <h2>Image Flow</h2>
-                        <h3>Fluid Dynamics Image Distortion &amp; Transitions | 流体力学 画像ディストーション &amp; トランジション</h3>
-
-                        <div style={{ marginBottom: '24px' }}>
-                            <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>EN</div>
-                            <p>Image Flow treats static pixels as liquid. Sequence photos on a timeline and bridge them with fluid transitions — an optical-flow Delta Flow warp, a swirling Breathing Morph vortex, or torn Glitch cuts — so each image melts, ripples, or spins into the next. Ken Burns motion and high-quality H.264 + AAC export turn a folder of stills into mesmerizing digital flow art.</p>
-                            <ul><li>Key Features: Delta Flow &amp; Breathing Morph transitions, Glitch cuts, Ken Burns motion, timeline-based editing, high-quality video + audio export.</li></ul>
-                        </div>
+                    <div className="info-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" onClick={e => e.stopPropagation()}>
+                        <button ref={closeRef} className="info-close" onClick={() => setShowInfo(false)} aria-label="Close"><X className="w-5 h-5"/></button>
+                        <h2 id="about-title">Image Flow</h2>
+                        <h3>Fluid Dynamics Image Distortion &amp; Transitions</h3>
 
                         <div>
-                            <div style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', marginBottom: '8px' }}>JP</div>
-                            <p>Image Flowは、静止画のピクセルを「液体」のように扱うビジュアルモジュレーターです。タイムライン上に写真を並べ、オプティカルフローで歪ませる「Delta Flow」、渦を巻くように変形する「Breathing Morph」、断片的に引き裂く「Glitch」といった流体的なトランジションで画像同士をつなぎ、溶け合い・波打ち・渦を巻くように次のカットへ移行させます。Ken Burns（ズーム・パン）モーションと、映像・音声ともに高音質な書き出しが、写真の集まりを催眠的なデジタル・フローアートへと昇華させます。</p>
-                            <ul><li>主要機能: Delta Flow / Breathing Morph トランジション、Glitchカット、Ken Burnsモーション、タイムライン編集、映像・音声高音質書き出し。</li></ul>
+                            <p>Image Flow treats static pixels as liquid. Sequence photos on a timeline and bridge them with fluid transitions — an optical-flow Delta Flow warp, a swirling Breathing Morph vortex, or torn Glitch cuts — so each image melts, ripples, or spins into the next. Ken Burns motion and high-quality H.264 + AAC export turn a folder of stills into mesmerizing digital flow art.</p>
+                            <ul><li>Key Features: Delta Flow &amp; Breathing Morph transitions, Glitch cuts, Ken Burns motion, timeline-based editing, high-quality video + audio export.</li></ul>
                         </div>
 
                         <p data-sample-credit style={{ marginTop: '24px', marginBottom: 0, fontSize: '0.8rem', color: '#94a3b8' }}>{SAMPLE_CREDIT}</p>
