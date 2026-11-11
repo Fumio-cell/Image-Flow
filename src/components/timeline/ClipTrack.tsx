@@ -129,12 +129,12 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
             onDrop={handleDrop}
             style={{
                 height: kind === 'audio' ? '90px' : '160px',
-                borderBottom: '2px solid var(--panel-border)',
+                borderBottom: 'var(--rule-hair) solid var(--line)',
                 position: 'relative',
-                backgroundColor: isDragOver ? 'rgba(124, 92, 252, 0.12)' : 'rgba(255, 255, 255, 0.05)',
-                outline: isDragOver ? '2px dashed rgba(124, 92, 252, 0.8)' : '1px dashed rgba(255,255,255,0.2)',
+                backgroundColor: 'var(--ink-panel)',
+                outline: isDragOver ? '2px dashed var(--acid)' : '1px dashed var(--line-control)',
                 outlineOffset: '-4px',
-                transition: 'background-color 0.15s, outline-color 0.15s'
+                transition: 'outline-color 120ms ease-out'
             }}
         >
             {(() => {
@@ -300,9 +300,9 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                 left: `${left}px`,
                                 width: `${Math.max(2, width)}px`,
                                 height: kind === 'audio' ? '82px' : '152px',
-                                backgroundColor: 'var(--clip-bg)',
-                                border: isSelected ? '2px solid var(--clip-selected)' : '1px solid var(--clip-border)',
-                                borderRadius: 'var(--radius-sm)',
+                                backgroundColor: 'var(--ink-panel)',
+                                border: isSelected ? '2px solid var(--acid)' : 'var(--rule-hair) solid var(--line-control)',
+                                borderRadius: 'var(--radius-none)',
                                 overflow: 'hidden',
                                 cursor: 'grab',
                                 display: 'flex',
@@ -312,7 +312,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                         >
                             {/* Thumbnail */}
                             {asset?.type === 'image' && (
-                                <img src={asset.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
+                                <img src={asset.objectUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none', borderRadius: 'var(--radius-thumb)' }} draggable={false} />
                             )}
                             {asset?.type === 'audio' && asset.peaks && (
                                 <div style={{
@@ -325,7 +325,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                         <div key={i} style={{
                                             flex: 1,
                                             height: `${Math.max(2, Math.min(1, pk) * 60 * (clip.volume ?? 1))}px`,
-                                            background: 'rgba(148, 163, 184, 0.85)'
+                                            background: 'var(--paper-dim)'
                                         }} />
                                     ))}
                                 </div>
@@ -334,7 +334,7 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                 <div style={{
                                     position: 'absolute', left: 0, right: 0, bottom: 0, height: '22px',
                                     display: 'flex', alignItems: 'flex-end', gap: '1px',
-                                    background: 'rgba(0,0,0,0.35)', pointerEvents: 'none', overflow: 'hidden',
+                                    background: 'var(--ink)', pointerEvents: 'none', overflow: 'hidden',
                                     zIndex: 2, // sits above the poster thumbnail
                                     opacity: clip.muted ? 0.25 : 1
                                 }}>
@@ -342,29 +342,29 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                         <div key={i} style={{
                                             flex: 1,
                                             height: `${Math.max(2, Math.min(1, pk) * 20 * (clip.volume ?? 1))}px`,
-                                            background: 'var(--accent-color, #7c5cfc)',
+                                            background: 'var(--paper-dim)',
                                             opacity: 0.85
                                         }} />
                                     ))}
                                 </div>
                             )}
                             {asset?.type === 'video' && asset.posterUrl && (
-                                <img src={asset.posterUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none' }} draggable={false} />
+                                <img src={asset.posterUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, pointerEvents: 'none', borderRadius: 'var(--radius-thumb)' }} draggable={false} />
                             )}
 
                             {/* Clip name */}
-                            <div style={{ position: 'absolute', top: '2px', left: '10px', right: '10px', fontSize: '10px', color: '#fff', textShadow: '1px 1px 2px #000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <div className="t-label" style={{ position: 'absolute', top: '2px', left: '10px', maxWidth: 'calc(100% - 20px)', color: 'var(--paper)', backgroundColor: 'var(--ink)', padding: '0 var(--space-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {asset?.name || 'Unknown'}
                             </div>
 
                             {/* Duration label */}
-                            <div style={{ position: 'absolute', bottom: '2px', right: '10px', fontSize: '9px', color: 'rgba(255,255,255,0.7)', textShadow: '1px 1px 2px #000' }}>
+                            <div className="t-label" style={{ position: 'absolute', bottom: '2px', right: '10px', color: 'var(--paper-dim)', backgroundColor: 'var(--ink)', padding: '0 var(--space-1)' }}>
                                 {formatMs(clip.durationMs)}
                             </div>
 
                             {/* Dissolve overlap indicator */}
                             {clip.transitionType === 'dissolve' && overlapMs > 0 && (
-                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${overlapMs * zoomScale}px`, backgroundColor: 'rgba(59,130,246,0.25)', borderRight: '1px dashed rgba(59,130,246,0.5)' }} title={`Dissolve: ${formatSecondsLabel(overlapMs)}`} />
+                                <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${overlapMs * zoomScale}px`, backgroundColor: 'var(--line)', borderRight: 'var(--rule-hair) dashed var(--paper-dim)' }} title={`Dissolve: ${formatSecondsLabel(overlapMs)}`} />
                             )}
 
                             {/* LEFT resize handle. In Auto-pack the start is derived, so it is shown disabled. */}
@@ -379,12 +379,8 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                     width: `${HANDLE_WIDTH}px`,
                                     cursor: packed ? 'not-allowed' : 'ew-resize',
                                     opacity: packed ? 0.35 : 1,
-                                    background: packed
-                                        ? 'repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 3px, transparent 3px 6px)'
-                                        : isSelected
-                                            ? 'linear-gradient(to right, rgba(59,130,246,0.5), transparent)'
-                                            : 'linear-gradient(to right, rgba(255,255,255,0.15), transparent)',
-                                    borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
+                                    backgroundColor: isSelected ? 'var(--acid)' : 'var(--line)',
+                                    borderRadius: 'var(--radius-none)',
                                     zIndex: 2
                                 }}
                             />
@@ -399,10 +395,8 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                                     bottom: 0,
                                     width: `${HANDLE_WIDTH}px`,
                                     cursor: 'ew-resize',
-                                    background: isSelected
-                                        ? 'linear-gradient(to left, rgba(59,130,246,0.5), transparent)'
-                                        : 'linear-gradient(to left, rgba(255,255,255,0.15), transparent)',
-                                    borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                                    backgroundColor: isSelected ? 'var(--acid)' : 'var(--line)',
+                                    borderRadius: 'var(--radius-none)',
                                     zIndex: 2
                                 }}
                             />
@@ -420,8 +414,8 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
 
             {markerMs !== null && (
                 <div style={{
-                    position: 'absolute', top: 0, bottom: 0, left: `${markerMs * zoomScale - 1.5}px`, width: '3px',
-                    backgroundColor: '#7c5cfc', boxShadow: '0 0 6px #7c5cfc', zIndex: 15, pointerEvents: 'none'
+                    position: 'absolute', top: 0, bottom: 0, left: `${markerMs * zoomScale - 1.5}px`, width: 'var(--rule-signature)',
+                    backgroundColor: 'var(--acid)', zIndex: 15, pointerEvents: 'none'
                 }} />
             )}
 
@@ -429,20 +423,18 @@ export const ClipTrack: React.FC<ClipTrackProps> = ({ kind = 'visual' }) => {
                 <div style={{ 
                     position: 'absolute', 
                     inset: '8px',
-                    border: '2px dashed rgba(255,255,255,0.2)',
-                    borderRadius: '8px',
+                    border: 'var(--rule-hair) dashed var(--line-control)',
+                    borderRadius: 'var(--radius-none)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    color: 'var(--text-muted)', 
-                    fontSize: '14px', 
-                    fontWeight: 'bold', 
+                    color: 'var(--paper-dim)', 
                     pointerEvents: 'none', 
                     textAlign: 'center' 
-                }}>
+                }} className="t-control">
                     {kind === 'audio' ? 'DRAG AUDIO HERE' : 'DRAG IMAGES OR VIDEO HERE'}
-                    <div style={{ fontSize: '10px', marginTop: '4px' }}>DROP FROM ASSETS PANE ON THE LEFT</div>
+                    <div className="t-label" style={{ marginTop: 'var(--space-1)' }}>DROP FROM ASSETS PANE ON THE LEFT</div>
                 </div>
             ) : null}
 

@@ -141,9 +141,9 @@ export const AssetPane: React.FC = () => {
     };
 
     return (
-        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '14px', margin: 0 }}>Assets</h2>
+        <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                <h2 style={{ margin: 0 }}>Assets</h2>
                 <button className="btn btn-icon" onClick={() => fileInputRef.current?.click()} aria-label="Add files" title="Add files">
                     <Plus size={16} />
                 </button>
@@ -159,22 +159,22 @@ export const AssetPane: React.FC = () => {
 
             <div style={{ flex: 1, overflowY: 'auto' }}>
                 {assets.length === 0 ? (
-                    <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)' }}>
-                        <p style={{ fontSize: '12px' }}>No assets imported.</p>
-                        <p style={{ fontSize: '12px' }}>Drag & drop files or click +</p>
-                        <p style={{ fontSize: '12px', margin: '1.25rem 0 0.5rem' }}>or start from an example:</p>
+                    <div style={{ textAlign: 'center', marginTop: 'var(--space-5)' }}>
+                        <p>No assets imported.</p>
+                        <p>Drag & drop files or click +</p>
+                        <p style={{ margin: 'var(--space-4) 0 var(--space-2)' }}>or start from an example:</p>
                         <TrySampleButton prominent />
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
                         {assets.map(asset => {
                             const usageCount = clips.filter(c => c.assetId === asset.id).length;
                             return (
                                 <div key={asset.id} style={{
-                                    border: '1px solid var(--panel-border)',
-                                    borderRadius: 'var(--radius-sm)',
+                                    border: 'var(--rule-hair) solid var(--line)',
+                                    borderRadius: 'var(--radius-none)',
                                     overflow: 'hidden',
-                                    backgroundColor: 'var(--bg-color)',
+                                    backgroundColor: 'var(--ink-panel)',
                                     position: 'relative',
                                     cursor: 'grab'
                                 }}
@@ -183,28 +183,28 @@ export const AssetPane: React.FC = () => {
                                         e.dataTransfer.setData('text/plain', asset.id);
                                     }}>
                                     {asset.type === 'image' ? (
-                                        <img src={asset.objectUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                        <img src={asset.objectUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-thumb)' }} draggable={false} />
                                     ) : asset.type === 'video' ? (
                                         <div style={{ position: 'relative', width: '100%', height: '80px' }}>
                                             {asset.posterUrl ? (
-                                                <img src={asset.posterUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover' }} draggable={false} />
+                                                <img src={asset.posterUrl} alt={asset.name} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: 'var(--radius-thumb)' }} draggable={false} />
                                             ) : (
                                                 <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <Film size={24} color="var(--text-muted)" />
+                                                    <Film size={24} color="var(--paper-dim)" />
                                                 </div>
                                             )}
                                             <div style={{
                                                 position: 'absolute', top: 2, left: 2,
                                                 width: 18, height: 18,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: '4px'
+                                                backgroundColor: 'var(--ink)', borderRadius: 'var(--radius-none)'
                                             }}>
-                                                <Film size={11} color="white" />
+                                                <Film size={11} color="var(--paper)" />
                                             </div>
                                         </div>
                                     ) : (
                                         <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Music size={24} color="var(--text-muted)" />
+                                            <Music size={24} color="var(--paper-dim)" />
                                         </div>
                                     )}
                                     <button
@@ -218,16 +218,16 @@ export const AssetPane: React.FC = () => {
                                             position: 'absolute', top: 2, right: 2,
                                             width: 20, height: 20,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            backgroundColor: 'rgba(0,0,0,0.65)',
-                                            border: 'none', borderRadius: '50%',
-                                            cursor: 'pointer', color: 'white', padding: 0
+                                            backgroundColor: 'var(--ink)',
+                                            border: 'none', borderRadius: 'var(--radius-none)',
+                                            cursor: 'pointer', color: 'var(--paper)', padding: 0
                                         }}
                                     >
                                         <Trash2 size={11} />
                                     </button>
-                                    <div style={{
+                                    <div className="t-label" style={{
                                         position: 'absolute', bottom: 0, left: 0, right: 0,
-                                        backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 4px', fontSize: '10px',
+                                        backgroundColor: 'var(--ink)', color: 'var(--paper)', padding: 'var(--space-1)',
                                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                                     }}>
                                         {asset.name}
@@ -240,7 +240,7 @@ export const AssetPane: React.FC = () => {
             </div>
 
             {assets.length > 0 && (
-                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.75rem' }}>
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', paddingTop: 'var(--space-3)' }}>
                     <TrySampleButton />
                     <SampleCredit />
                 </div>

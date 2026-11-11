@@ -18,10 +18,10 @@ const RangeField: React.FC<{
 }> = ({ label, value, min, max, step = 0.01, onChange }) => {
     const id = useId();
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', marginBottom: '0.25rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label htmlFor={id} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
-                <span style={{ fontSize: '10px', color: 'var(--text-accent)' }}>{value.toFixed(2)}</span>
+                <label htmlFor={id}>{label}</label>
+                <span className="t-value" style={{ color: 'var(--paper)' }}>{value.toFixed(2)}</span>
             </div>
             <input
                 id={id}
@@ -92,12 +92,17 @@ export const SettingsPane: React.FC = () => {
 
     if (!clip) {
         return (
-            <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem', color: 'var(--text-muted)' }}>
-                <h2 style={{ fontSize: '14px', margin: 0, color: 'var(--text-main)' }}>Project Settings</h2>
+            <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', height: '100%', gap: 'var(--space-4)' }}>
+                <h2 style={{ margin: 0 }}>Project Settings</h2>
 
                 <ProjectSettingsControls />
 
-                <div style={{ marginTop: 'auto', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '11px', textAlign: 'center' }}>
+                <div style={{ marginTop: 'var(--space-4)' }}>
+                    <p className="t-statement" style={{ color: 'var(--paper)', margin: 0 }}>NOTHING LEAVES THIS MACHINE</p>
+                    <p className="t-note" style={{ margin: 'var(--space-3) 0 0' }}>No upload. No account. The file is made here.</p>
+                </div>
+
+                <div className="t-note" style={{ marginTop: 'auto', padding: 'var(--space-3)', border: 'var(--rule-hair) solid var(--line)', textAlign: 'center' }}>
                     Select a clip on the timeline below to edit its properties.
                 </div>
             </div>
@@ -122,8 +127,8 @@ export const SettingsPane: React.FC = () => {
         : {};
 
     return (
-        <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', height: '100%', gap: '0.75rem' }}>
-            <h2 style={{ fontSize: '14px', margin: 0 }}>Clip Settings</h2>
+        <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', height: '100%', gap: 'var(--space-3)' }}>
+            <h2 style={{ margin: 0 }}>Clip Settings</h2>
 
             <ProjectSettingsControls compact />
 
@@ -131,7 +136,7 @@ export const SettingsPane: React.FC = () => {
                 // Auto-pack derives the start from the clips before it.
                 <div
                     title="Start is set automatically in Auto-pack mode."
-                    style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', opacity: 0.45, cursor: 'not-allowed' }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', opacity: 0.45, cursor: 'not-allowed' }}
                 >
                     <SecondsField label="Start Time (s)" valueMs={clip.startTimeMs} disabled onCommit={() => { /* derived */ }} />
                 </div>
@@ -159,12 +164,12 @@ export const SettingsPane: React.FC = () => {
             )}
 
             {clipHasAudio && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        <label>
                             Clip Volume
                         </label>
-                        <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                             <input
                                 type="checkbox"
                                 checked={clip.muted ?? false}
@@ -173,31 +178,30 @@ export const SettingsPane: React.FC = () => {
                             Mute
                         </label>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <input
-                            className="volume-slider"
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            disabled={clip.muted ?? false}
-                            value={clip.volume ?? 1}
-                            onChange={(e) => updateClip(clip.id, { volume: Number(e.target.value) })}
-                            style={{
-                                flex: 1,
-                                // Fill follows the value exactly, so 100% reaches the end.
-                                background: `linear-gradient(to right, var(--accent-color) 0%, var(--accent-color) ${(clip.volume ?? 1) * 100}%, rgba(255,255,255,0.15) ${(clip.volume ?? 1) * 100}%, rgba(255,255,255,0.15) 100%)`,
-                            }}
-                        />
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '3ch', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <div className="volume-track">
+                            <div className="volume-fill" style={{ width: `${(clip.volume ?? 1) * 100}%` }} />
+                            <input
+                                className="volume-slider"
+                                type="range"
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={clip.muted ?? false}
+                                value={clip.volume ?? 1}
+                                onChange={(e) => updateClip(clip.id, { volume: Number(e.target.value) })}
+                                aria-label="Clip Volume"
+                            />
+                        </div>
+                        <span className="t-value" style={{ width: '3ch', textAlign: 'right' }}>
                             {Math.round((clip.volume ?? 1) * 100)}
                         </span>
                     </div>
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor={transitionId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Transition Type</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <label htmlFor={transitionId}>Transition Type</label>
                 <select
                     id={transitionId}
                     value={clip.transitionType}
@@ -214,31 +218,31 @@ export const SettingsPane: React.FC = () => {
                     </option>
                 </select>
                 {isVideoClip && (
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <span className="t-note">
                         Delta Flow and Breathing Morph need still images.
                     </span>
                 )}
             </div>
 
             {(clip.transitionType === 'dissolve' || clip.transitionType === 'delta-flow' || clip.transitionType === 'glitch' || clip.transitionType === 'breathing-morph') && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.4rem', backgroundColor: 'var(--panel-bg)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', padding: 'var(--space-2)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)' }}>
                     {!prevClip ? (
-                        <label style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        <label>
                             The transition applies when this clip is not first.
                         </label>
                     ) : overlapMs > 0 ? (
-                        <label style={{ fontSize: '10px', color: 'var(--text-accent)' }}>
+                        <label style={{ color: 'var(--paper)' }}>
                             Overlap: {formatSecondsLabel(overlapMs)}
                         </label>
                     ) : (
-                        <label style={{ fontSize: '10px', color: 'var(--text-danger)' }}>
+                        <label style={{ color: 'var(--paper)' }}>
                             No overlap with previous clip.
                         </label>
                     )}
                     {prevClip && overlapMs <= 0 && !packedVisual && (
                         <button
                             className="btn btn-secondary"
-                            style={{ fontSize: '10px', padding: '2px 4px' }}
+                            style={{ padding: 'var(--space-1) var(--space-2)' }}
                             onClick={() => {
                                 const newStart = Math.max(0, prevEnd - 500);
                                 updateClip(clip.id, { startTimeMs: newStart });
@@ -250,8 +254,8 @@ export const SettingsPane: React.FC = () => {
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor={fitId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Image Fit Mode</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <label htmlFor={fitId}>Image Fit Mode</label>
                 <select
                     id={fitId}
                     value={clip.fitMode}
@@ -263,8 +267,8 @@ export const SettingsPane: React.FC = () => {
                 </select>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label htmlFor={motionId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ken Burns Effect (Motion)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <label htmlFor={motionId}>Ken Burns Effect (Motion)</label>
                 <select
                     id={motionId}
                     value={clip.motionType || 'none'}
@@ -278,7 +282,7 @@ export const SettingsPane: React.FC = () => {
                     <option value="pan-up">Pan Up</option>
                     <option value="pan-down">Pan Down</option>
                 </select>
-                <div style={{ padding: '0.4rem', marginTop: '0.2rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)', display: (clip.motionType && clip.motionType !== 'none') ? 'block' : 'none' }}>
+                <div style={{ padding: 'var(--space-2)', marginTop: 'var(--space-1)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)', display: (clip.motionType && clip.motionType !== 'none') ? 'block' : 'none' }}>
                     <RangeField
                         label="Motion Intensity"
                         value={clip.motionIntensity !== undefined ? clip.motionIntensity : 0.1}
@@ -297,9 +301,9 @@ export const SettingsPane: React.FC = () => {
             </div>
 
             {clip.transitionType === 'delta-flow' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Delta Flow</label>
-                    <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                    <label>Delta Flow</label>
+                    <div style={{ padding: 'var(--space-2)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)' }}>
                         <RangeField
                             label="Sensitivity"
                             value={clip.deltaFlowSensitivity !== undefined ? clip.deltaFlowSensitivity : 0.55}
@@ -326,9 +330,9 @@ export const SettingsPane: React.FC = () => {
             )}
 
             {clip.transitionType === 'breathing-morph' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Breathing Morph</label>
-                    <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                    <label>Breathing Morph</label>
+                    <div style={{ padding: 'var(--space-2)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)' }}>
                         <RangeField
                             label="Turbulence"
                             value={clip.breathingTurbulence !== undefined ? clip.breathingTurbulence : 0.5}
@@ -348,9 +352,9 @@ export const SettingsPane: React.FC = () => {
             )}
 
             {clip.transitionType === 'glitch' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Glitch</label>
-                    <div style={{ padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                    <label>Glitch</label>
+                    <div style={{ padding: 'var(--space-2)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)' }}>
                         <RangeField
                             label="Glitch Amount"
                             value={glitch.amount}
@@ -376,28 +380,28 @@ export const SettingsPane: React.FC = () => {
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Audio Reactive VJ Mode</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--panel-border)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                <label>Audio Reactive VJ Mode</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-2)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)' }}>
                     <input 
                         type="checkbox" 
                         id="audioReactive"
                         checked={!!clip.audioReactive}
                         onChange={(e) => updateClip(clip.id, { audioReactive: e.target.checked })}
                     />
-                    <label htmlFor="audioReactive" style={{ fontSize: '11px', color: 'var(--text-main)', cursor: 'pointer' }}>
+                    <label htmlFor="audioReactive" style={{ color: 'var(--paper)', cursor: 'pointer' }}>
                         Sync Zoom & Glitch to Audio Beats
                     </label>
                 </div>
                 {clip.audioReactive && <MusicReactionSlider clip={clip} />}
                 {clip.audioReactive && audioWithoutEnvelope && (
-                    <div role="status" style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '0.4rem', border: '1px dashed var(--panel-border)', borderRadius: 'var(--radius-sm)' }}>
+                    <div role="status" className="t-note" style={{ padding: 'var(--space-2)', border: 'var(--rule-hair) dashed var(--line-control)' }}>
                         Re-import the audio to enable Music reaction.
                     </div>
                 )}
             </div>
 
-            <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--panel-border)' }}>
+            <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)', borderTop: 'var(--rule-hair) solid var(--line)' }}>
                 <button className="btn btn-danger" style={{ width: '100%' }} onClick={() => removeClip(clip.id)}>
                     Delete Clip
                 </button>

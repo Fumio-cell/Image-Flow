@@ -3,9 +3,9 @@ import { useProjectStore } from '../../store/useProjectStore';
 import type { ExportQuality, FPS, Resolution } from '../../types';
 import { RESOLUTIONS, firstVisualAsset, resolutionEnlarges, resolutionEntry, resolutionName } from '../../utils/pickResolution';
 
-const SELECT_STYLE: React.CSSProperties = { padding: '0.4rem', backgroundColor: 'var(--bg-dark)', color: 'white', border: '1px solid var(--panel-border)', borderRadius: '4px' };
-const LABEL_STYLE: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)' };
-const FIELD_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: '0.25rem' };
+const SELECT_STYLE: React.CSSProperties = {};
+const LABEL_STYLE: React.CSSProperties = {};
+const FIELD_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' };
 
 /**
  * Project settings: resolution (with the automatic-choice message and the "will be enlarged" line), export quality, frame rate.
@@ -28,13 +28,13 @@ export const ProjectSettingsControls: React.FC<{ compact?: boolean }> = ({ compa
     const messages = (
         <>
             {resolutionNotice && (
-                <div role="status" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', fontSize: '11px', lineHeight: 1.4, color: 'var(--text-main)', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '0.35rem 0.5rem' }}>
+                <div role="status" className="t-note" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-2)', color: 'var(--paper)', backgroundColor: 'var(--ink-panel)', border: 'var(--rule-hair) solid var(--line)', borderRadius: 'var(--radius-none)', padding: 'var(--space-2)' }}>
                     <span>{resolutionNotice}</span>
-                    <button type="button" className="btn btn-secondary" onClick={dismissResolutionNotice} style={{ padding: '0 0.4rem', fontSize: '11px', flexShrink: 0 }}>Dismiss</button>
+                    <button type="button" className="btn btn-secondary" onClick={dismissResolutionNotice} style={{ padding: '0 var(--space-2)', flexShrink: 0 }}>Dismiss</button>
                 </div>
             )}
             {enlarged && (
-                <p style={{ margin: 0, fontSize: '11px', lineHeight: 1.4, color: 'rgba(255, 208, 138, 0.95)' }}>
+                <p style={{ margin: 0, color: 'var(--paper)' }}>
                     {resolutionName(settings.resolution)} is larger than your {firstIsVideo ? 'video; it' : 'images; they'} will be enlarged.
                 </p>
             )}
@@ -74,13 +74,13 @@ export const ProjectSettingsControls: React.FC<{ compact?: boolean }> = ({ compa
         return <>{resolutionField}{qualityField}{fpsField}</>;
     }
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {messages}
-            <details style={{ border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '0.4rem 0.5rem' }}>
-                <summary style={{ cursor: 'pointer', fontSize: '12px', color: 'var(--text-main)' }}>
-                    Project settings <span style={{ color: 'var(--text-muted)' }}>({resolutionEntry(settings.resolution).label}, {settings.exportQuality === 'high' ? 'High' : 'Standard'}, {settings.fps} FPS)</span>
+            <details style={{ border: 'var(--rule-hair) solid var(--line)', borderRadius: 'var(--radius-none)', padding: 'var(--space-2)' }}>
+                <summary className="t-control" style={{ cursor: 'pointer', color: 'var(--paper)' }}>
+                    Project settings <span style={{ color: 'var(--paper-dim)' }}>({resolutionEntry(settings.resolution).label}, {settings.exportQuality === 'high' ? 'High' : 'Standard'}, {settings.fps} FPS)</span>
                 </summary>
-                <div style={{ ...FIELD_STYLE, gap: '0.75rem', marginTop: '0.6rem' }}>
+                <div style={{ ...FIELD_STYLE, gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
                     {resolutionField}{qualityField}{fpsField}
                 </div>
             </details>

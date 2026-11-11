@@ -23,9 +23,9 @@ export const Header: React.FC = () => {
         <header className="toolkit-header">
             <div className="header-left">
                 <div className="toolkit-brand">
-                    <svg className="brand-icon" width="28" height="28" viewBox="0 0 48 48" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="brand-icon" width="28" height="28" viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14 24 L20 16 L26 24 L20 32 Z"/>
-                        <circle cx="20" cy="24" r="1.6" fill="rgba(255,255,255,0.75)" stroke="none"/>
+                        <circle cx="20" cy="24" r="1.6" fill="currentColor" stroke="none"/>
                         <path d="M26 24 L34 24"/>
                         <circle cx="36" cy="24" r="2.4"/>
                     </svg>
@@ -49,96 +49,85 @@ export const Header: React.FC = () => {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 0.75rem 1.5rem;
-                    background: rgba(15, 23, 42, 0.85);
-                    backdrop-filter: blur(12px);
-                    border-bottom: 1px solid #9E3D3F;
+                    padding: var(--space-2) var(--space-4);
+                    background: var(--ink);
+                    border-bottom: var(--rule-hair) solid var(--line);
                     position: sticky;
                     top: 0;
                     z-index: 1000;
-                    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-                    font-size: 0.875rem;
                 }
                 .header-left, .header-right {
                     display: flex;
                     align-items: center;
-                    gap: 1rem;
+                    gap: var(--space-3);
                 }
                 .toolkit-brand {
                     display: flex;
                     align-items: center;
-                    gap: 0.5rem;
-                    color: #7c5cfc;
+                    gap: var(--space-2);
+                    color: var(--paper-dim);
                 }
                 .brand-icon {
-                    width: 32px;
-                    height: 32px;
+                    width: 28px;
+                    height: 28px;
                 }
                 .toolkit-name {
-                    font-family: 'Fraunces', serif;
-                    font-size: 18px;
-                    font-weight: 500;
-                    font-optical-sizing: auto;
-                    letter-spacing: 0.01em;
-                    color: rgba(255, 255, 255, 0.9);
+                    font: 400 10px/14px var(--font-mono);
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                    color: var(--paper-dim);
                 }
                 .app-separator {
-                    color: rgba(255, 255, 255, 0.2);
-                    font-weight: 300;
-                    margin: 0 0.5rem;
-                    font-size: 20px;
+                    font: 400 12px/18px var(--font-mono);
+                    color: var(--paper-label);
                 }
                 .app-name {
                     margin: 0;
-                    color: rgba(255, 255, 255, 0.85);
-                    font-size: 20px;
-                    font-weight: 600;
-                    letter-spacing: -0.01em;
+                    font: 900 40px/40px var(--font-display);
+                    letter-spacing: -0.03em;
+                    color: var(--paper);
                 }
                 .preview-badge {
                     display: flex;
                     align-items: center;
-                    font-size: 0.7rem;
-                    font-weight: 700;
-                    padding: 0.25rem 0.65rem;
-                    border-radius: 9999px;
-                    background: rgba(255, 255, 255, 0.08);
-                    border: 1px solid rgba(255, 255, 255, 0.18);
-                    color: rgba(255, 255, 255, 0.75);
+                    padding: var(--space-1) var(--space-3);
+                    border: var(--rule-hair) solid var(--line-control);
+                    border-radius: var(--radius-none);
+                    color: var(--paper-dim);
+                    font: 500 11px/16px var(--font-mono);
                     letter-spacing: 0.08em;
+                    text-transform: uppercase;
                 }
-           
+
                 .info-modal-overlay {
                     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+                    background: color-mix(in srgb, var(--ink-stage) 85%, transparent);
                     display: flex; align-items: center; justify-content: center; z-index: 99999;
                 }
                 .info-modal {
-                    background: #111827; border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 16px; padding: 32px; max-width: 600px;
+                    background: var(--ink); border: var(--rule-hair) solid var(--line-control);
+                    border-radius: var(--radius-none); padding: var(--space-5); max-width: 600px;
                     width: 90%; max-height: 85vh; overflow-y: auto;
-                    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
                     position: relative;
                     text-align: left;
                 }
-                .info-modal h2 { margin-top: 0; color: #f8fafc; font-size: 1.5rem; }
-                .info-modal h3 { color: #a5b4fc; font-size: 0.85rem; margin-bottom: 24px; font-weight: 600; }
-                .info-modal p { color: #cbd5e1; line-height: 1.6; font-size: 0.9rem; margin-bottom: 12px; }
-                .info-modal ul { color: #cbd5e1; font-size: 0.85rem; padding-left: 20px; list-style-type: none; margin:0; padding:0; }
-                .info-modal li { margin-bottom: 8px; font-weight: 500; color: #94a3b8; }
+                .info-modal h2 { margin-top: 0; color: var(--paper); }
+                .info-modal h3 { font: 700 15px/20px var(--font-display); letter-spacing: 0; color: var(--paper); margin-bottom: var(--space-4); }
+                .info-modal p { color: var(--paper-dim); font: 400 11px/19px var(--font-mono); margin-bottom: var(--space-3); }
+                .info-modal ul { list-style-type: none; margin: 0; padding: 0; }
+                .info-modal li { margin-bottom: var(--space-2); font: 400 11px/19px var(--font-mono); color: var(--paper-dim); }
                 .info-close {
-                    position: absolute; top: 16px; right: 16px;
-                    background: transparent; border: none; color: #64748b;
-                    cursor: pointer; padding: 6px; border-radius: 6px; transition: all 0.2s;
+                    position: absolute; top: var(--space-3); right: var(--space-3);
+                    background: transparent; border: none; color: var(--paper-dim);
+                    cursor: pointer; padding: var(--space-2); border-radius: var(--radius-none); transition: color 120ms ease-out;
                 }
-                .info-close:hover { color: #f8fafc; background: rgba(255,255,255,0.1); }
+                .info-close:hover { color: var(--paper); }
                 .info-btn {
-                    background: transparent; border: none; color: #64748b; cursor: pointer;
+                    background: transparent; border: none; color: var(--paper-dim); cursor: pointer;
                     display: flex; align-items: center; justify-content: center;
-                    margin-left: 12px; transition: color 0.2s;
+                    margin-left: var(--space-2); transition: color 120ms ease-out;
                 }
-                .info-btn:hover { color: #f8fafc; }
-    
+                .info-btn:hover { color: var(--paper); }
             `}
             </style>
         
@@ -154,7 +143,7 @@ export const Header: React.FC = () => {
                             <ul><li>Key Features: Delta Flow &amp; Breathing Morph transitions, Glitch cuts, Ken Burns motion, timeline-based editing, high-quality video + audio export.</li></ul>
                         </div>
 
-                        <p data-sample-credit style={{ marginTop: '24px', marginBottom: 0, fontSize: '0.8rem', color: '#94a3b8' }}>{SAMPLE_CREDIT}</p>
+                        <p data-sample-credit style={{ marginTop: 'var(--space-5)', marginBottom: 0 }}>{SAMPLE_CREDIT}</p>
                     </div>
                 </div>,
                 document.body

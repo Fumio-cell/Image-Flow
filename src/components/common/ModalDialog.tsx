@@ -68,16 +68,16 @@ export const ModalDialog: React.FC<Props> = ({ title, message, actions, onClose,
     return createPortal(
         <div
             onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'color-mix(in srgb, var(--ink-stage) 85%, transparent)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
             <div
                 role={role} aria-modal="true" aria-labelledby={titleId} aria-describedby={textId}
                 onKeyDown={onKeyDown}
-                style={{ width: '360px', maxWidth: '90vw', padding: '1.25rem', backgroundColor: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 'var(--radius-md)', boxShadow: '0 12px 32px rgba(0,0,0,0.5)', color: 'var(--text-main)' }}
+                style={{ width: '380px', maxWidth: '90vw', padding: 'var(--space-5)', backgroundColor: 'var(--ink)', border: 'var(--rule-hair) solid var(--line-control)', borderRadius: 'var(--radius-none)', color: 'var(--paper)' }}
             >
-                <h2 id={titleId} style={{ margin: '0 0 0.5rem', fontSize: '14px', fontWeight: 600 }}>{title}</h2>
-                <p id={textId} style={{ margin: '0 0 1rem', fontSize: '12px', lineHeight: 1.5, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{message}</p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <h2 id={titleId} style={{ margin: '0 0 var(--space-2)' }}>{title}</h2>
+                <p id={textId} style={{ margin: '0 0 var(--space-4)', whiteSpace: 'pre-wrap' }}>{message}</p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
                     {actions.map((a, i) => (
                         <button key={a.label} ref={(el) => { buttons.current[i] = el; }} type="button" className={`btn ${a.primary ? 'btn-primary' : 'btn-secondary'}`} onClick={a.onClick}>{a.label}</button>
                     ))}

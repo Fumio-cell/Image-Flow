@@ -1,38 +1,4 @@
-:root {
-  --bg-color: #0d0f12;
-  --panel-bg: #15181c;
-  --panel-border: #23272e;
-  
-  --text-main: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-inactive: #8190a6;
-  
-  --accent-color: #7c5cfc;
-  --accent-strong: #6a4be0; /* white text on it is 5.7:1 (the lighter accent gives 4.4:1) */
-  --accent-hover: #6a4be0;
-  --accent-active: #5a3cc8;
-  --focus-ring: #c7d2fe;   /* keyboard focus ring: 8:1 or more on every panel colour, 3.8:1 on the primary button */
-  
-  --danger-color: #ef4444;
-  --danger-hover: #dc2626;
-
-  --timeline-bg: #111317;
-  --timeline-playhead: #ef4444;
-  --timeline-grid: #1e293b;
-  --track-bg: #1a1d24;
-  
-  --clip-bg: #334155;
-  --clip-border: #475569;
-  --clip-selected: #7c5cfc;
-
-  --font-family: 'Inter', 'FOT-Seurat Pro', 'Seurat Pro', 'Seurat', 'Hiragino Maru Gothic ProN', -apple-system, sans-serif;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.25s ease;
-}
+/* Element and component rules. Colours, type scale, spacing and shape come from styles/signal.css (the only place a colour value lives). */
 
 * {
   box-sizing: border-box;
@@ -44,9 +10,9 @@ html, body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  font-family: var(--font-family);
+  background-color: var(--ink);
+  color: var(--paper);
+  font: 400 12px/18px var(--font-mono);
   user-select: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -59,86 +25,106 @@ html, body {
   flex-direction: column;
 }
 
-/* Typography basics */
+/* Type: headings and buttons are display, labels and notes are mono. */
 h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  color: var(--text-main);
-  margin-bottom: 0.5rem;
+  font: 900 26px/26px var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--paper);
+  margin-bottom: var(--space-2);
 }
 
 p {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font: 400 11px/19px var(--font-mono);
+  color: var(--paper-dim);
 }
 
-/* Common UI Elements */
+label {
+  font: 400 10px/14px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+a {
+  color: var(--paper);
+}
+
+/* Buttons */
 button {
   cursor: pointer;
   border: none;
   background: none;
-  font-family: inherit;
+  font: 700 15px/20px var(--font-display);
   color: inherit;
+  border-radius: var(--radius-none);
 }
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all var(--transition-fast);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-none);
+  transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
 
 .btn-primary {
-  background-color: var(--accent-strong);
-  color: white;
+  background-color: var(--acid);
+  color: var(--ink);
+  border: var(--rule-hair) solid var(--acid);
 }
 
 .btn-primary:hover {
-  background-color: var(--accent-active);
+  background-color: var(--paper);
+  border-color: var(--paper);
 }
 
 .btn-primary:active {
-  background-color: #4b30ad;
+  background-color: var(--acid-press);
+  border-color: var(--acid-press);
 }
 
 .btn-secondary {
   background-color: transparent;
-  border: 1px solid var(--panel-border);
-  color: var(--text-main);
+  border: var(--rule-hair) solid var(--line-control);
+  color: var(--paper);
 }
 
 .btn-secondary:hover {
-  background-color: var(--panel-border);
+  border-color: var(--paper);
+}
+
+.btn-secondary:active {
+  background-color: var(--ink-panel);
 }
 
 .btn-danger {
   background-color: transparent;
-  color: var(--danger-color);
-  border: 1px solid var(--danger-color);
+  color: var(--signal-red);
+  border: var(--rule-hair) solid var(--signal-red);
 }
 
 .btn-danger:hover {
-  background-color: var(--danger-color);
-  color: white;
+  background-color: var(--signal-red);
+  color: var(--ink);
 }
 
 .btn-icon {
-  padding: 0.5rem;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  padding: var(--space-2);
+  color: var(--paper-dim);
 }
 
 .btn-icon:hover {
-  background-color: var(--panel-border);
-  color: var(--text-main);
+  color: var(--paper);
 }
 
-/* Custom Scrollbar */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -147,45 +133,56 @@ button {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--panel-border);
-  border-radius: 4px;
+  background: var(--line-control);
+  border-radius: var(--radius-none);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-inactive);
+  background: var(--paper-dim);
 }
 
-/* Inputs and Selects */
+/* Inputs and selects */
 input, select {
-  background-color: var(--bg-color);
-  border: 1px solid var(--panel-border);
-  color: var(--text-main);
-  padding: 0.5rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  transition: border-color var(--transition-fast);
+  background-color: var(--ink-panel);
+  border: var(--rule-hair) solid var(--line-control);
+  color: var(--paper);
+  padding: var(--space-2);
+  border-radius: var(--radius-none);
+  font: 400 12px/18px var(--font-mono);
+  accent-color: var(--acid);
+  transition: border-color 120ms ease-out;
 }
 
 input:focus, select:focus {
-  border-color: var(--accent-color);
+  border-color: var(--paper);
 }
 
-/* Layout Utilities */
-.panel {
-  background-color: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-md);
-  padding: 1rem;
+/* Volume slider: a track with a solid fill div (no gradient), a square thumb. */
+.volume-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background-color: var(--line-control);
 }
 
-/* Volume slider.
-   The browser default insets the thumb, so at 100% the fill stops short of the
-   right edge and reads as "not quite maximum". Drawing the track ourselves lets
-   the fill run the full width at max. */
+.volume-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background-color: var(--acid);
+  pointer-events: none;
+}
+
 .volume-slider {
   -webkit-appearance: none;
   appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 6px;
-  border-radius: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
   margin: 0;
 }
@@ -193,26 +190,26 @@ input:focus, select:focus {
 .volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
+  width: 12px;
   height: 14px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid var(--accent-color);
+  border-radius: var(--radius-none);
+  background: var(--paper);
+  border: 2px solid var(--ink);
   cursor: grab;
-  /* Keep the thumb inside the track at both ends without shortening the fill. */
   margin-top: 0;
 }
 
 .volume-slider::-webkit-slider-thumb:active {
   cursor: grabbing;
+  background: var(--acid-press);
 }
 
 .volume-slider::-moz-range-thumb {
-  width: 14px;
+  width: 12px;
   height: 14px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid var(--accent-color);
+  border-radius: var(--radius-none);
+  background: var(--paper);
+  border: 2px solid var(--ink);
   cursor: grab;
 }
 
@@ -224,66 +221,57 @@ input:focus, select:focus {
 /* Demo build: note under the toolbar, next to the Export button */
 .demo-note {
   margin: 0;
-  padding: 0.25rem 1rem;
+  padding: var(--space-1) var(--space-4);
   text-align: right;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--text-muted);
-  background-color: var(--panel-bg);
-  border-bottom: 1px solid var(--panel-border);
+  font: 400 11px/19px var(--font-mono);
+  color: var(--paper-dim);
+  background-color: var(--ink);
+  border-bottom: var(--rule-hair) solid var(--line);
 }
 
 /* Demo build: panel shown after an export finishes */
 .demo-panel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--space-2));
   right: 0;
   z-index: 50;
   width: 300px;
-  padding: 0.75rem 0.9rem;
+  padding: var(--space-3);
   text-align: left;
-  color: var(--text-main);
-  background-color: var(--panel-bg);
-  border: 1px solid rgba(255, 176, 59, 0.5);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  color: var(--paper);
+  background-color: var(--ink-panel);
+  border: var(--rule-hair) solid var(--line-control);
+  border-radius: var(--radius-none);
 }
 
 .demo-panel h3 {
-  margin: 0 0 0.25rem;
-  font-size: 13px;
-  font-weight: 600;
+  margin: 0 0 var(--space-1);
 }
 
 .demo-panel p {
-  margin: 0 0 0.6rem;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-muted);
+  margin: 0 0 var(--space-3);
 }
 
 .demo-panel-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .demo-panel a {
-  color: #ffd08a;
-  font-weight: 600;
-  font-size: 12px;
+  color: var(--paper);
+  font: 700 15px/20px var(--font-display);
   text-decoration: underline;
 }
 
-/* Decorative "CLIPS" watermark of an empty visual lane. It is a pseudo-element so it is not page text (it is far below any contrast ratio on purpose). */
+/* Decorative "CLIPS" watermark of an empty visual lane. It is a pseudo-element so it is not page text. */
 .lane-ghost {
   position: absolute;
-  top: 8px;
-  left: 12px;
-  color: rgba(255, 255, 255, 0.05);
-  font-size: 32px;
-  font-weight: bold;
+  top: var(--space-2);
+  left: var(--space-3);
+  color: var(--line);
+  font: 900 32px/32px var(--font-display);
   pointer-events: none;
 }
 
@@ -291,16 +279,15 @@ input:focus, select:focus {
   content: 'CLIPS';
 }
 
-/* Keyboard focus: one visible ring for every interactive element (buttons, links, fields, sliders, clips, chips). */
+/* Keyboard focus: one visible ring for every interactive element. The ink ring around it keeps it visible over a photograph. */
 :focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-  /* A dark gap between the element and the ring keeps the ring readable over any picture or colour inside the element. */
-  box-shadow: 0 0 0 2px var(--bg-color);
-  transition: none; /* the ring appears at once (buttons use `transition: all`, which would animate it in) */
+  box-shadow: 0 0 0 6px var(--ink);
+  transition: none;
 }
 
-/* Layout shell and scrollbar details (these used to live in App.css) */
+/* Layout shell */
 .app-container {
   width: 100vw;
   height: 100vh;

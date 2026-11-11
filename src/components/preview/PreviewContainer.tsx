@@ -6,7 +6,9 @@ export const PreviewContainer: React.FC = () => {
         <div style={{
             width: '100%',
             height: '100%',
-            backgroundColor: '#000',
+            backgroundColor: 'var(--ink-stage)',
+            padding: 'var(--space-2)',
+            boxSizing: 'border-box',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

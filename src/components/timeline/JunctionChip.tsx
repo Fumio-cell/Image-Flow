@@ -72,11 +72,10 @@ export const JunctionChip: React.FC<{ clip: Clip; prev: Clip; number: number; zo
 
     return (
         <>
-            <style>{`.junction-chip:focus-visible{outline:2px solid #fff;outline-offset:2px}`}</style>
             <button
                 ref={chipRef}
                 type="button"
-                className="junction-chip"
+                className="junction-chip t-control"
                 aria-haspopup="dialog"
                 aria-expanded={open}
                 aria-label={`${text}, junction ${number}. Edit transition`}
@@ -89,8 +88,8 @@ export const JunctionChip: React.FC<{ clip: Clip; prev: Clip; number: number; zo
                 }}
                 style={{
                     position: 'absolute', bottom: '10px', left: `${centerMs * zoomScale}px`, transform: 'translateX(-50%)',
-                    zIndex: 6, padding: '2px 8px', fontSize: '11px', lineHeight: 1.4, whiteSpace: 'nowrap',
-                    color: '#fff', backgroundColor: 'rgba(17, 19, 23, 0.92)', border: '1px solid #7c5cfc', borderRadius: '10px',
+                    zIndex: 6, padding: '2px var(--space-2)', whiteSpace: 'nowrap',
+                    color: 'var(--paper)', backgroundColor: 'var(--ink)', border: 'var(--rule-hair) solid var(--acid)', borderRadius: 'var(--radius-none)',
                     cursor: 'pointer',
                 }}
             >
@@ -104,13 +103,12 @@ export const JunctionChip: React.FC<{ clip: Clip; prev: Clip; number: number; zo
                     onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); close(true); } }}
                     style={{
                         position: 'fixed', left: pos.left, bottom: pos.bottom, width: '220px', zIndex: 10000,
-                        display: 'flex', flexDirection: 'column', gap: '0.6rem', padding: '0.75rem',
-                        backgroundColor: 'var(--panel-bg)', border: '1px solid var(--panel-border)', borderRadius: 'var(--radius-md)',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                        display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: 'var(--space-3)',
+                        backgroundColor: 'var(--ink)', border: 'var(--rule-hair) solid var(--line-control)', borderRadius: 'var(--radius-none)',
                     }}
                 >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <label htmlFor={selectId} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Transition</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                        <label htmlFor={selectId}>Transition</label>
                         <select
                             id={selectId}
                             ref={selectRef}

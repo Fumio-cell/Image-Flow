@@ -125,7 +125,7 @@ export const PreviewCanvas: React.FC = () => {
             const currentAudioLevel = reactionLevelAt(playheadMs, clips, assets);
 
             // ONLY clear the background when we are ready to draw to prevent flickering
-            ctx.fillStyle = '#000000';
+            ctx.fillStyle = 'black'; // the picture's own black: it must equal the export's background
             ctx.fillRect(0, 0, width, height);
             // Enable high-quality image smoothing to prevent moiré patterns
             ctx.imageSmoothingEnabled = true;

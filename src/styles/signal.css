@@ -1,0 +1,46 @@
+/*
+ * SIGNAL design system: the ONE place colours live. Every other stylesheet and inline style uses these variables.
+ *
+ * The one rule: the artwork is the only colour on the stage. The accent never appears inside or directly beside the
+ * preview; it lives in the chrome (the rule under the top bar, the primary button, active states, the junction chips).
+ */
+:root {
+  --ink: #0a0a0a;            /* page ground */
+  --ink-stage: #050505;      /* behind the artwork or canvas */
+  --ink-panel: #141412;      /* fill of inputs, selects, raised controls */
+  --line: #1d1d1a;           /* hairline between regions */
+  --line-control: #62625a;   /* border of an interactive control */
+  --paper: #f4f4f0;          /* primary text and the wordmark */
+  --paper-dim: #9a9a90;      /* secondary text, inactive labels */
+  --paper-label: #8a8a80;    /* the smallest text; nothing is dimmer than this */
+  --acid: #d8ff3e;           /* the one accent */
+  --acid-press: #b9e016;     /* accent while held down */
+  --signal-red: #ff2d55;     /* playhead, recording, destructive confirmation only */
+  --focus-ring: #d8ff3e;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 14px;
+  --space-4: 20px;
+  --space-5: 28px;
+  --space-6: 40px;
+
+  --radius-none: 0;
+  --radius-thumb: 2px;
+
+  --rule-hair: 1px;
+  --rule-signature: 3px;
+
+  --font-display: "Archivo", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+
+/* Type styles. Every label, unit, timecode and numeric readout is mono; buttons and headings are display. */
+.t-wordmark  { font: 900 40px/40px var(--font-display); letter-spacing: -0.03em; }
+.t-statement { font: 900 34px/32px var(--font-display); letter-spacing: -0.03em; }
+.t-heading   { font: 900 26px/26px var(--font-display); letter-spacing: -0.02em; }
+.t-button    { font: 700 15px/20px var(--font-display); }
+.t-label     { font: 400 10px/14px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.t-control   { font: 500 11px/16px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.t-value     { font: 400 12px/18px var(--font-mono); }
+.t-note      { font: 400 11px/19px var(--font-mono); }

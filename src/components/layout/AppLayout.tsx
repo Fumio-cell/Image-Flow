@@ -12,9 +12,9 @@ export const AppLayout: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
             <Header />
             <TopBar />
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden', borderTop: 'var(--rule-hair) solid var(--line)' }}>
                 {/* Left Pane */}
-                <aside aria-label="Assets" style={{ width: '300px', borderRight: '1px solid var(--panel-border)', backgroundColor: 'var(--panel-bg)', display: 'flex', flexDirection: 'column' }}>
+                <aside aria-label="Assets" style={{ width: '300px', borderRight: 'var(--rule-hair) solid var(--line)', backgroundColor: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
                     <AssetPane />
                 </aside>
 
@@ -23,13 +23,13 @@ export const AppLayout: React.FC = () => {
                     <main aria-label="Preview" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                         <PreviewContainer />
                     </main>
-                    <section aria-label="Timeline" style={{ height: '350px', borderTop: '4px solid var(--panel-border)', backgroundColor: 'var(--panel-bg)', overflow: 'hidden' }}>
+                    <section aria-label="Timeline" style={{ height: '350px', borderTop: 'var(--rule-hair) solid var(--line)', backgroundColor: 'var(--ink)', overflow: 'hidden' }}>
                         <TimelineContainer />
                     </section>
                 </div>
 
                 {/* Right Pane */}
-                <aside aria-label="Project settings" style={{ width: '300px', borderLeft: '1px solid var(--panel-border)', backgroundColor: 'var(--panel-bg)', display: 'flex', flexDirection: 'column' }}>
+                <aside aria-label="Project settings" style={{ width: '300px', borderLeft: 'var(--rule-hair) solid var(--line)', backgroundColor: 'var(--ink)', display: 'flex', flexDirection: 'column' }}>
                     <SettingsPane />
                 </aside>
             </div>

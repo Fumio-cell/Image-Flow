@@ -48,11 +48,11 @@ export const TrySampleButton: React.FC<{ prominent?: boolean }> = ({ prominent }
                 onClick={onClick}
                 onKeyDown={stopAppKeys}
                 disabled={busy}
-                style={prominent ? { borderColor: 'var(--accent-color)' } : { width: '100%', justifyContent: 'center' }}
+                style={prominent ? undefined : { width: '100%', justifyContent: 'center' }}
             >
                 {busy ? 'Loading sample…' : 'Try a sample'}
             </button>
-            {failed && <p role="alert" style={{ margin: '0.5rem 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>Could not load the sample. Check your connection and try again.</p>}
+            {failed && <p role="alert" style={{ margin: 'var(--space-2) 0 0' }}>Could not load the sample. Check your connection and try again.</p>}
             {confirming && (
                 <ModalDialog
                     title="Load the sample?"
@@ -70,5 +70,5 @@ export const TrySampleButton: React.FC<{ prominent?: boolean }> = ({ prominent }
 export const SampleCredit: React.FC = () => {
     const show = useProjectStore(s => s.data.assets.some(a => isSampleAsset(a.id)));
     if (!show) return null;
-    return <p data-sample-credit style={{ margin: 0, fontSize: '10px', lineHeight: 1.4, color: 'var(--text-muted)' }}>{SAMPLE_CREDIT}</p>;
+    return <p data-sample-credit className="t-note" style={{ margin: 0 }}>{SAMPLE_CREDIT}</p>;
 };

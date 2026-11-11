@@ -76,23 +76,23 @@ export const TopBar: React.FC = () => {
         <>
             <section aria-label="Project controls">
             <div style={{
-                height: '48px',
-                borderBottom: '1px solid var(--panel-border)',
-                backgroundColor: 'var(--panel-bg)',
+                minHeight: '48px',
+                borderBottom: 'var(--rule-signature) solid var(--acid)',
+                backgroundColor: 'var(--ink)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0 1rem'
+                padding: '0 var(--space-4)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Project Controls</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <h2 style={{ margin: 0 }}>Project Controls</h2>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                     <button className="btn btn-icon" onClick={() => setIsPlaying(!isPlaying)} aria-label={isPlaying ? 'Pause' : 'Play'}>
                         {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                     </button>
-                    <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--panel-border)', margin: '0 0.5rem' }} />
+                    <div style={{ width: 'var(--rule-hair)', height: '24px', backgroundColor: 'var(--line-control)', margin: '0 var(--space-2)' }} />
 
                     <button className="btn btn-secondary" onClick={handleNewProject}>
                         <FilePlus2 size={16} /> New Project
@@ -106,7 +106,7 @@ export const TopBar: React.FC = () => {
                     <button className="btn btn-secondary" onClick={saveProject}>
                         <Save size={16} /> Save
                     </button>
-                    <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--panel-border)', margin: '0 0.5rem' }} />
+                    <div style={{ width: 'var(--rule-hair)', height: '24px', backgroundColor: 'var(--line-control)', margin: '0 var(--space-2)' }} />
                     <div style={{ position: 'relative' }}>
                         <button
                             ref={exportBtnRef}
@@ -133,15 +133,15 @@ export const TopBar: React.FC = () => {
             {exporting && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999,
+                    backgroundColor: 'color-mix(in srgb, var(--ink-stage) 85%, transparent)', zIndex: 9999,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
                 }}>
-                    <div role="dialog" aria-modal="true" aria-label="Exporting video" style={{ backgroundColor: 'var(--panel-bg)', padding: '2rem', borderRadius: 'var(--radius-md)', width: '300px', textAlign: 'center' }}>
-                        <h2 style={{ marginBottom: '1rem', margin: 0 }}>Exporting Video...</h2>
-                        <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--panel-border)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
-                            <div style={{ width: `${exportProgress}%`, height: '100%', backgroundColor: 'var(--accent-color)', transition: 'width 0.2s' }} />
+                    <div role="dialog" aria-modal="true" aria-label="Exporting video" style={{ backgroundColor: 'var(--ink)', border: 'var(--rule-hair) solid var(--line-control)', padding: 'var(--space-5)', borderRadius: 'var(--radius-none)', width: '320px', textAlign: 'center' }}>
+                        <h2 style={{ marginBottom: 'var(--space-3)', margin: 0 }}>Exporting Video...</h2>
+                        <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--line)', overflow: 'hidden', margin: 'var(--space-3) 0' }}>
+                            <div style={{ width: `${exportProgress}%`, height: '100%', backgroundColor: 'var(--paper)', transition: 'width 120ms linear' }} />
                         </div>
-                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>{exportProgress}%</p>
+                        <p style={{ margin: 0 }} className="t-value">{exportProgress}%</p>
                     </div>
                 </div>
             )}

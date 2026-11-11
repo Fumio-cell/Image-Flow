@@ -32,8 +32,8 @@ export const SecondsField: React.FC<{
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label htmlFor={id} style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{label}</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+            <label htmlFor={id}>{label}</label>
             <input
                 id={id}
                 ref={inputRef}

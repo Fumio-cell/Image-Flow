@@ -102,8 +102,8 @@ export const TimelineContainer: React.FC = () => {
                     display: 'flex',
                     alignItems: 'center'
                 }}>
-                    <div style={{ width: '1px', height: '8px', backgroundColor: 'var(--text-inactive)' }} />
-                    <span style={{ fontSize: '9px', color: 'var(--text-inactive)', marginLeft: '3px', whiteSpace: 'nowrap' }}>
+                    <div style={{ width: 'var(--rule-hair)', height: '8px', backgroundColor: 'var(--line-control)' }} />
+                    <span className="t-label" style={{ color: 'var(--paper-label)', marginLeft: '3px', whiteSpace: 'nowrap' }}>
                         {label}
                     </span>
                 </div>
@@ -125,11 +125,11 @@ export const TimelineContainer: React.FC = () => {
             <div
                 style={{
                     height: '28px',
-                    backgroundColor: 'var(--panel-border)',
-                    borderBottom: '1px solid var(--panel-bg)',
+                    backgroundColor: 'var(--ink-panel)',
+                    borderBottom: 'var(--rule-hair) solid var(--line)',
                     display: 'flex',
                     alignItems: 'center',
-                    paddingLeft: '8px',
+                    paddingLeft: 'var(--space-2)',
                     flexShrink: 0,
                     justifyContent: 'space-between'
                 }}
@@ -143,7 +143,7 @@ export const TimelineContainer: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '2px', paddingRight: '8px', flexShrink: 0 }}>
                     <label
                         title="Keep clips in a row with automatic transitions"
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '8px', fontSize: '11px', color: 'var(--text-main)', cursor: 'pointer' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)', marginRight: 'var(--space-2)', color: 'var(--paper)', cursor: 'pointer' }}
                     >
                         <input
                             type="checkbox"
@@ -194,8 +194,8 @@ export const TimelineContainer: React.FC = () => {
                 {/* Track Labels - Sticky Column */}
                 <div style={{
                     width: '60px',
-                    backgroundColor: 'var(--panel-bg)',
-                    borderRight: '1px solid var(--panel-border)',
+                    backgroundColor: 'var(--ink)',
+                    borderRight: 'var(--rule-hair) solid var(--line)',
                     position: 'sticky',
                     left: 0,
                     zIndex: 20,
@@ -203,11 +203,11 @@ export const TimelineContainer: React.FC = () => {
                     flexDirection: 'column',
                     flexShrink: 0
                 }}>
-                    <div style={{ height: '28px', borderBottom: '1px solid var(--panel-bg)' }} /> {/* Header spacer */}
-                    <div style={{ height: '160px', opacity: 0.6, borderBottom: '2px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', color: 'var(--text-main)', letterSpacing: '2px', fontWeight: 'bold' }}>
+                    <div style={{ height: '28px', borderBottom: 'var(--rule-hair) solid var(--line)' }} /> {/* Header spacer */}
+                    <div className="t-label" style={{ height: '160px', borderBottom: 'var(--rule-hair) solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--paper-dim)' }}>
                         CLIPS
                     </div>
-                    <div style={{ height: '80px', opacity: 0.6, borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '11px', color: 'var(--text-main)', letterSpacing: '2px', fontWeight: 'bold' }}>
+                    <div className="t-label" style={{ height: '80px', borderBottom: 'var(--rule-hair) solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--paper-dim)' }}>
                         AUDIO
                     </div>
                 </div>
@@ -232,7 +232,7 @@ export const TimelineContainer: React.FC = () => {
                         bottom: 0,
                         left: `${playheadX}px`,
                         width: '2px',
-                        backgroundColor: 'var(--timeline-playhead)',
+                        backgroundColor: 'var(--signal-red)',
                         zIndex: 10,
                         pointerEvents: 'none'
                     }} />
